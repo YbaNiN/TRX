@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TRX Panel</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Toasts -->
+  <div id="toastHost" class="toastHost" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Notification Center -->
+  <aside id="notifyPanel" class="drawer" aria-hidden="true" aria-label="Notificaciones">
+    <div class="drawerHead">
+      <div>
+        <div class="drawerTitle">Notificaciones</div>
+        <div class="drawerSub" id="notifySub">0</div>
+      </div>
+      <div class="drawerBtns">
+        <button id="btnNotifyClear" class="btn ghost" type="button">Limpiar</button>
+        <button id="btnNotifyClose" class="iconBtn" type="button" aria-label="Cerrar">✕</button>
+      </div>
+    </div>
+    <div class="drawerBody" id="notifyList"></div>
+  </aside>
+  <div id="drawerOverlay" class="drawerOverlay" aria-hidden="true"></div>
+
+  <!-- Confirm Modal -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modalBackdrop" data-close="1"></div>
+    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modalHead">
+        <div>
+          <div id="modalTitle" class="modalTitle">Confirmación</div>
+          <div id="modalDesc" class="modalDesc"></div>
+        </div>
+        <button class="iconBtn" id="modalX" type="button" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modalActions">
+        <button id="modalCancel" class="btn ghost" type="button">Cancelar</button>
+        <button id="modalOk" class="btn primary" type="button">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Task Modal -->
+  <div id="editModal" class="modal" aria-hidden="true">
+    <div class="modalBackdrop" data-close-edit="1"></div>
+    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+      <div class="modalHead">
+        <div>
+          <div id="editTitle" class="modalTitle">Editar tarea</div>
+          <div class="modalDesc">Actualiza campos y guarda.</div>
+        </div>
+        <button class="iconBtn" id="editX" type="button" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="editForm" class="formGrid">
+        <div class="field">
+          <label class="lbl" for="editText">Título</label>
+          <input id="editText" type="text" required />
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label class="lbl" for="editPriority">Prioridad</label>
+            <select id="editPriority">
+              <option value="low">Baja</option>
+              <option value="med">Media</option>
+              <option value="high">Alta</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="lbl" for="editStatus">Estado</label>
+            <select id="editStatus">
+              <option value="todo">Pendiente</option>
+              <option value="doing">En curso</option>
+              <option value="done">Hecho</option>
+            </select>
+          </div>
+        </div>
+        <div class="row3">
+          <div class="field">
+            <label class="lbl" for="editType">Tipo</label>
+            <select id="editType">
+              <option value="task">Tarea</option>
+              <option value="event">Evento</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="lbl" for="editStart">Comienzo</label>
+            <input id="editStart" type="date" />
+          </div>
+
+          <div class="field">
+            <label class="lbl" for="editEnd">Finalización</label>
+            <input id="editEnd" type="date" />
+          </div>
+        </div>
+
+
+
+        <div class="field">
+          <label class="lbl" for="editTags">Tags (separados por coma)</label>
+          <input id="editTags" type="text" placeholder="trabajo, estudio, música" />
+        </div>
+
+        <div class="modalActions">
+          <button id="editCancel" class="btn ghost" type="button">Cancelar</button>
+          <button class="btn primary" type="submit">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Command Palette -->
+  <div id="cmdk" class="modal" aria-hidden="true">
+    <div class="modalBackdrop" data-close-cmdk="1"></div>
+    <div class="cmdkCard" role="dialog" aria-modal="true" aria-labelledby="cmdkTitle">
+      <div class="cmdkHead">
+        <div id="cmdkTitle" class="cmdkTitle">Comandos</div>
+        <button class="iconBtn" id="cmdkX" type="button" aria-label="Cerrar">✕</button>
+      </div>
+      <input id="cmdkInput" class="cmdkInput" type="text" placeholder="Buscar: tareas, stats, tema, nueva..." autocomplete="off" />
+      <div id="cmdkList" class="cmdkList" role="listbox" aria-label="Resultados"></div>
+      <div class="cmdkHint">Enter para ejecutar · Esc para cerrar</div>
+    </div>
+  </div>
+
+  <!-- Login Gate -->
+  <div id="authGate" class="gate">
+    <div class="gateCard">
+      <div class="gateBrand">
+        <div class="logoMark"></div>
+        <div>
+          <h1>TRX Panel</h1>
+          <p>Acceso</p>
+        </div>
+      </div>
+
+      <form id="loginForm" class="gateForm">
+        <div class="field">
+          <label class="lbl">Usuario</label>
+          <input id="loginUser" type="text" autocomplete="username" placeholder="admin / user" required />
+        </div>
+
+        <div class="field">
+          <label class="lbl">Contraseña</label>
+          <div class="pwWrap">
+            <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••" required />
+            <button id="pwToggle" class="iconBtn" type="button" aria-label="Mostrar/ocultar">👁</button>
+          </div>
+        </div>
+
+        <button id="loginBtn" class="btn primary" type="submit">
+          <span class="btnText">Entrar</span>
+          <span class="spinner" aria-hidden="true"></span>
+        </button>
+
+        <div id="loginErr" class="err" aria-live="polite"></div>
+      </form>
+
+      <div class="gateFoot">
+        <span class="chip">admin</span>
+        <span class="chip">user</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sbTop">
+        <div class="sbBrand">
+          <div class="logoMark small"></div>
+          <div class="sbTitle">
+            <div class="name">TRX Panel</div>
+            <div class="sub" id="who"></div>
+          </div>
+        </div>
+
+        <nav class="sbNav" role="tablist" aria-label="Navegación">
+          <button class="tab active" data-tab="overview" role="tab" aria-selected="true">
+            <span class="ic">⌁</span><span>Resumen</span>
+          </button>
+          <button class="tab" data-tab="tasks" role="tab" aria-selected="false">
+            <span class="ic">✓</span><span>Tareas</span>
+          </button>
+                    <button class="tab" data-tab="calendar" role="tab" aria-selected="false">
+            <span class="ic">📅</span><span>Calendario</span>
+          </button>
+<button class="tab" data-tab="notes" role="tab" aria-selected="false" data-requires-role="admin">
+            <span class="ic">✎</span><span>Notas</span>
+          </button>
+          <button class="tab" data-tab="stats" role="tab" aria-selected="false" data-requires-role="admin">
+            <span class="ic">▦</span><span>Stats</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="sbBottom">
+        <div class="sbMeta">
+          <span id="today"></span>
+          <span class="dot">•</span>
+          <span id="clock"></span>
+        </div>
+
+        <div class="sbActions">
+          <button id="btnTheme" class="btn ghost" type="button">Tema</button>
+          <button id="btnDensity" class="btn ghost" type="button">Densidad</button>
+          <button id="btnNotify" class="btn ghost" type="button">Notifs</button>
+          <button id="btnReset" class="btn danger" type="button">Reiniciar</button>
+          <button id="btnLogout" class="btn ghost" type="button">Salir</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Mobile sidebar overlay -->
+    <div id="sbOverlay" class="sbOverlay" aria-hidden="true"></div>
+
+    <!-- Content -->
+    <main class="content">
+      <header class="topbar">
+        <button id="btnMenu" class="iconBtn menuBtn" type="button" aria-label="Menú">☰</button>
+
+        <div class="topTitle">
+          <div class="h">Panel</div>
+          <div class="p">Gestión y métricas</div>
+        </div>
+
+        <div class="topPills">
+          <span class="pill" id="streak">0</span>
+          <span class="pill subtle" id="statTotal">0</span>
+          <button id="btnCmdk" class="iconBtn" type="button" aria-label="Comandos">⌘K</button>
+        </div>
+      </header>
+
+      <!-- OVERVIEW -->
+      <section class="panel active" id="overview" role="tabpanel">
+        <div class="grid3">
+          <div class="card statCard">
+            <div class="k">Total</div>
+            <div class="v" id="statTotal_dup">0</div>
+            <div class="s">tareas</div>
+          </div>
+          <div class="card statCard">
+            <div class="k">Hechas</div>
+            <div class="v" id="statDone">0</div>
+            <div class="s">completadas</div>
+          </div>
+          <div class="card statCard">
+            <div class="k">Pendientes</div>
+            <div class="v" id="statPending">0</div>
+            <div class="s">por hacer</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="cardHead">
+              <h2>Recientes</h2>
+              <span class="pill subtle">últimas</span>
+            </div>
+            <ul id="recentList" class="miniList"></ul>
+          </div>
+
+          <div class="card">
+            <div class="cardHead">
+              <h2>Notas rápidas</h2>
+              <span class="pill subtle" id="notesCount">0</span>
+            </div>
+            <textarea id="notesArea" class="notes" placeholder="Escribe aquí..."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- TASKS -->
+      <section class="panel" id="tasks" role="tabpanel">
+        <div class="card">
+          <div class="cardHead">
+            <h2>Tareas</h2>
+            <div class="row compact">
+              <input id="searchInput" type="text" placeholder="Buscar..." />
+              <select id="filterSelect" aria-label="Filtrar por estado">
+                <option value="all" selected>Todas</option>
+                <option value="todo">Pendientes</option>
+                <option value="doing">En curso</option>
+                <option value="done">Hechas</option>
+              </select>
+              <select id="viewSelect" aria-label="Vista">
+                <option value="list" selected>Lista</option>
+                <option value="kanban">Kanban</option>
+              </select>
+            </div>
+          </div>
+
+          <form id="taskForm" class="row">
+            <input id="taskInput" type="text" placeholder="Nueva tarea o evento..." autocomplete="off" />
+            <select id="taskType" aria-label="Tipo">
+              <option value="task" selected>Tarea</option>
+              <option value="event">Evento</option>
+            </select>
+            <input id="taskStart" type="date" aria-label="Comienzo" />
+            <input id="taskEnd" type="date" aria-label="Finalización" />
+            <input id="taskTags" type="text" placeholder="Tags: trabajo, música..." />
+            <select id="taskPriority" aria-label="Prioridad">
+              <option value="low">Baja</option>
+              <option value="med" selected>Media</option>
+              <option value="high">Alta</option>
+            </select>
+            <button class="btn primary" type="submit">Añadir</button>
+          </form>
+
+          <!-- Chips -->
+          <div class="chipRow">
+            <div class="chipLabel">Tags:</div>
+            <div id="tagChips" class="chipWrap"></div>
+            <button id="btnClearTag" class="btn ghost sm" type="button">Quitar filtro</button>
+          </div>
+
+          <!-- Skeleton -->
+          <div id="tasksSkeleton" class="skeletonWrap" aria-hidden="true"></div>
+
+          <!-- List View -->
+          <ul id="taskList" class="list"></ul>
+
+          <!-- Kanban View -->
+          <div id="kanban" class="kanban" aria-label="Tablero Kanban">
+            <div class="kCol" data-status="todo">
+              <div class="kHead"><span>Pendiente</span><span class="kCount" id="kTodo">0</span></div>
+              <div class="kBody" id="kTodoBody"></div>
+            </div>
+            <div class="kCol" data-status="doing">
+              <div class="kHead"><span>En curso</span><span class="kCount" id="kDoing">0</span></div>
+              <div class="kBody" id="kDoingBody"></div>
+            </div>
+            <div class="kCol" data-status="done">
+              <div class="kHead"><span>Hecho</span><span class="kCount" id="kDone">0</span></div>
+              <div class="kBody" id="kDoneBody"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- NOTES -->
+      
+      <section class="panel" id="calendar" role="tabpanel">
+        <div class="card">
+          <div class="row spread">
+            <div>
+              <div class="h2">Calendario</div>
+              <div class="muted">Vista mensual con tareas y eventos por fecha.</div>
+            </div>
+            <div class="row" style="gap:8px; flex-wrap:wrap; justify-content:flex-end">
+              <button class="btn ghost" id="calToday" type="button">Hoy</button>
+              <button class="btn ghost" id="calPrev" type="button">◀</button>
+              <button class="btn ghost" id="calNext" type="button">▶</button>
+            </div>
+          </div>
+
+          <div class="calHead">
+            <div class="calMonth" id="calMonthLabel"></div>
+            <div class="calLegend">
+              <span class="dot todo"></span><span class="muted">Pendiente</span>
+              <span class="dot doing"></span><span class="muted">En curso</span>
+              <span class="dot done"></span><span class="muted">Completado</span>
+            </div>
+          </div>
+
+          <div id="calendarGrid" class="calendar"></div>
+        </div>
+      </section>
+
+<section class="panel" id="notes" role="tabpanel">
+        <div class="card">
+          <div class="cardHead">
+            <h2>Notas</h2>
+            <span class="pill subtle" id="notesCount_dup">0</span>
+          </div>
+          <textarea id="notesArea_dup" class="notes" placeholder="Escribe aquí..."></textarea>
+        </div>
+      </section>
+
+      <!-- STATS -->
+      <section class="panel" id="stats" role="tabpanel">
+        <div class="card">
+          <div class="cardHead">
+            <h2>Estadísticas</h2>
+            <div class="row compact">
+              <select id="rangeSelect" aria-label="Rango">
+                <option value="7" selected>7 días</option>
+                <option value="14">14 días</option>
+                <option value="30">30 días</option>
+              </select>
+              <button id="btnRecalc" class="btn ghost" type="button">Actualizar</button>
+            </div>
+          </div>
+
+          <div id="statsSkeleton" class="skeletonWrap" aria-hidden="true"></div>
+
+          <div class="grid2 statsGrid">
+            <div class="card mini">
+              <div class="miniHead">
+                <span class="muted">Hechas por día</span>
+                <span class="pill subtle" id="doneTotalInRange">0</span>
+              </div>
+              <canvas id="chartDone" height="170"></canvas>
+            </div>
+
+            <div class="card mini">
+              <div class="miniHead">
+                <span class="muted">Prioridades</span>
+                <span class="pill subtle" id="prioTotal">0</span>
+              </div>
+              <canvas id="chartPrio" height="170"></canvas>
+            </div>
+          </div>
+
+          <div class="card mini">
+            <div class="miniHead">
+              <span class="muted">Creación por día</span>
+              <span class="pill subtle" id="createdTotalInRange">0</span>
+            </div>
+            <canvas id="chartCreated" height="200"></canvas>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
