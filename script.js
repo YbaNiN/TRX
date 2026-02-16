@@ -455,6 +455,7 @@ function setSession(username, role) {
   showGate(false);
   switchTab("overview");
   toast({ title: "Sesión iniciada", message: `${username} conectado`, type: "ok" });
+  try { scheduleInstallUIAfterLogin(); } catch {}
 }
 
 function clearSession() {
@@ -1474,52 +1475,183 @@ function bindUx() {
 }
 
 /* ===================== Main ===================== */
-// --- PWA Install UI (Android prompt + iOS hint) ---
-let __deferredInstallPrompt = null;
+/* ----- PWA Install UX (Mobile-first: FAB + smarter banner + iOS sheet) ----- */
+let deferredInstallPrompt = null;
 
-function isIOS() {
-  const ua = navigator.userAgent || navigator.vendor || window.opera;
-  return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-}
-function isStandalone() {
-  return window.matchMedia && window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+const INSTALL_STATE_KEY = "trx_install_ui_v1"; // { dismissedAt: ISO, installed: bool, installedAt?: ISO }
+
+function isIOS(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent || "") && !window.MSStream;
 }
 
-function initInstallUI() {
-  const card = $("#installCard");
-  const btn = $("#btnInstall");
-  const iosHint = $("#iosHint");
-  if (!card || !btn || !iosHint) return;
+function isStandalone(){
+  return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+}
 
-  // iOS: no beforeinstallprompt. Show hint if not already installed.
-  if (isIOS() && !isStandalone()) {
-    card.classList.remove("hidden");
-    iosHint.classList.remove("hidden");
-    btn.classList.add("hidden");
+function getInstallState(){
+  try { return JSON.parse(localStorage.getItem(INSTALL_STATE_KEY) || "{}"); }
+  catch { return {}; }
+}
+
+function setInstallState(patch){
+  const cur = getInstallState();
+  const next = { ...cur, ...patch };
+  localStorage.setItem(INSTALL_STATE_KEY, JSON.stringify(next));
+}
+
+function canShowInstallUI(){
+  if (isStandalone()) return false;
+  const s = getInstallState();
+  if (s.installed) return false;
+
+  // Don't annoy: if dismissed today, hide until tomorrow
+  if (s.dismissedAt){
+    const d = new Date(s.dismissedAt);
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) return false;
+  }
+  return true;
+}
+
+function showInstallUI({ canInstall, showHelp }){
+  const banner = $("#installBanner");
+  const fab = $("#installFab");
+
+  if (!canShowInstallUI()) {
+    if (banner) banner.hidden = true;
+    if (fab) fab.hidden = true;
+    return;
   }
 
-  window.addEventListener("beforeinstallprompt", (e) => {
-    // Android/Chromium
-    e.preventDefault();
-    __deferredInstallPrompt = e;
-    if (!isStandalone()) {
-      card.classList.remove("hidden");
-      btn.classList.remove("hidden");
+  // Prefer banner to avoid duplicate CTAs; only fall back to FAB if banner is missing
+  if (!banner) {
+    if (fab) fab.hidden = false;
+    return;
+  }
+  if (fab) fab.hidden = true;
+
+  const btnInstall = $("#btnInstallApp");
+  const btnHelp = $("#btnInstallHelp");
+
+  if (btnInstall) btnInstall.style.display = canInstall ? "" : "none";
+  if (btnHelp) btnHelp.style.display = showHelp ? "" : "none";
+
+  banner.hidden = false;
+}
+
+function hideInstallUI(){
+  $("#installBanner") && ($("#installBanner").hidden = true);
+  $("#installFab") && ($("#installFab").hidden = true);
+}
+
+function dismissInstallUI(){
+  setInstallState({ dismissedAt: new Date().toISOString() });
+  hideInstallUI();
+}
+
+function openInstallSheet(){
+  const sheet = $("#installHelp");
+  if (!sheet) return;
+  sheet.hidden = false;
+
+  const close = () => { sheet.hidden = true; };
+
+  $("#btnSheetClose")?.addEventListener("click", close, { once:true });
+  $("#btnSheetOk")?.addEventListener("click", close, { once:true });
+  sheet.querySelector(".sheetBackdrop")?.addEventListener("click", close, { once:true });
+}
+
+async function triggerInstall(){
+  if (isIOS()){
+    openInstallSheet();
+    return;
+  }
+
+  if (deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    try {
+      const choice = await deferredInstallPrompt.userChoice;
+      if (choice && choice.outcome !== "accepted"){
+        // If they cancel, don't keep pushing today
+        dismissInstallUI();
+      }
+    } catch {
+      // ignore
     }
+    deferredInstallPrompt = null;
+    return;
+  }
+
+  // No native prompt available: show a quick hint
+  toast({ title:"Instalar", message:"Abre el menú del navegador y busca “Instalar app” o “Añadir a pantalla de inicio”.", type:"info" });
+}
+
+function bindInstallButtons(){
+  // Rebind safely (clone nodes to remove previous handlers)
+  const rebind = (id, handler) => {
+    const el = $(id);
+    if (!el || !el.parentNode) return;
+    const clone = el.cloneNode(true);
+    el.parentNode.replaceChild(clone, el);
+    clone.addEventListener("click", handler);
+  };
+
+  rebind("installFab", triggerInstall);
+  rebind("btnInstallApp", triggerInstall);
+  rebind("btnInstallHelp", () => openInstallSheet());
+  rebind("btnInstallClose", () => dismissInstallUI());
+}
+
+function initInstallUX(){
+  // Bind buttons once
+  bindInstallButtons();
+
+  // If already installed, hide
+  if (isStandalone()) { hideInstallUI(); return; }
+
+  // IMPORTANT: do not show install UI on the login gate.
+  // We'll show it after login (setSession) or when an existing session is restored.
+
+  // Android/Chrome: capture native prompt
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    showInstallUI({ canInstall:true, showHelp:false });
   });
 
-  btn.addEventListener("click", async () => {
-    if (!__deferredInstallPrompt) return;
-    __deferredInstallPrompt.prompt();
-    try { await __deferredInstallPrompt.userChoice; } catch {}
-    __deferredInstallPrompt = null;
-    card.classList.add("hidden");
-  });
-
+  // Mark installed
   window.addEventListener("appinstalled", () => {
-    card.classList.add("hidden");
-    __deferredInstallPrompt = null;
+    setInstallState({ installed:true, installedAt: new Date().toISOString() });
+    deferredInstallPrompt = null;
+    hideInstallUI();
+    toast({ title:"✅ Instalado", message:"TRX Panel ya está en tu móvil", type:"ok" });
   });
+}
+
+function scheduleInstallUIAfterLogin(){
+  // Show after the user is inside the app (session active)
+  if (!state.session || !state.session.u) return;
+
+  // Only on mobile width; banner is okay but we avoid spamming on desktop
+  const mobile = window.matchMedia ? window.matchMedia("(max-width: 899px)").matches : true;
+  if (!mobile) return;
+
+  if (!canShowInstallUI()) return;
+
+  // Delay a bit so it's not in-your-face
+  setTimeout(() => {
+    if (!canShowInstallUI()) return;
+
+    // If we already have prompt, show install button; otherwise show help on iOS, or keep FAB
+    if (isIOS()){
+      showInstallUI({ canInstall:false, showHelp:true });
+    } else if (deferredInstallPrompt){
+      showInstallUI({ canInstall:true, showHelp:false });
+    } else {
+      // No prompt yet: show banner with a gentle help button (works in many Android browsers)
+      showInstallUI({ canInstall:false, showHelp:true });
+    }
+  }, 6500);
 }
 
 function main() {
@@ -1535,6 +1667,8 @@ function main() {
   bindCmdk();
   bindUx();
 
+  initInstallUX();
+
   // service worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
@@ -1547,6 +1681,7 @@ function main() {
     $("#who").textContent = `${state.session.u} (${state.session.role})`;
     lockByRole(state.session.role);
     showGate(false);
+    try { scheduleInstallUIAfterLogin(); } catch {}
   } else {
     showGate(true);
   }
