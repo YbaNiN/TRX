@@ -335,7 +335,8 @@ function openEdit(t) {
   $("#editStart").value = t.startDate || "";
   $("#editEnd").value = t.endDate || "";
   $("#editTags").value = (t.tags || []).join(", ");
-  const m = $("#editModal");
+    if ($("#editColor")) $("#editColor").value = (t.color && /^#[0-9a-f]{6}$/i.test(t.color)) ? t.color : "#3b82f6";
+const m = $("#editModal");
   m.classList.add("show");
   m.setAttribute("aria-hidden", "false");
   $("#editText").focus();
@@ -546,6 +547,10 @@ function normalizeTask(t) {
   // Tipo: task | event
   if (!t.category) t.category = "task";
 
+
+  // Color del borde (hex #RRGGBB)
+  if (!t.color) t.color = null;
+  if (t.color && !/^#[0-9a-f]{6}$/i.test(String(t.color))) t.color = null;
   // Fechas: startDate/endDate en yyyy-mm-dd
   const createdISO = toISODate(t.createdAt || Date.now());
   if (!t.startDate) t.startDate = createdISO;
@@ -563,7 +568,7 @@ function normalizeTask(t) {
   return t;
 }
 
-function addTask(title, priority, tags, startDate, endDate, category) {
+function addTask(title, priority, tags, startDate, endDate, category, color) {
   const clean = (title || "").trim();
   if (!clean) return;
 
@@ -577,6 +582,7 @@ function addTask(title, priority, tags, startDate, endDate, category) {
     endDate: endDate || null,
     tags: tags || [],
     createdAt: Date.now(),
+    color: color || null,
     doneAt: null,
     done: false,
   });
@@ -605,6 +611,18 @@ function deleteTask(id) {
   save();
   renderAll();
   toast({ title:"Eliminada", message: t?.title || "", type:"warn" });
+}
+
+// Confirmación antes de eliminar (usado por vista lista)
+async function confirmDelete(id) {
+  const t = state.tasks.find(x => x.id === id);
+  const ok = await openModal({
+    title: "Eliminar",
+    desc: `¿Eliminar \"${t?.title || ""}\"?`,
+    okText: "Eliminar",
+    cancelText: "Cancelar",
+  });
+  if (ok) deleteTask(id);
 }
 
 function filteredTasks() {
@@ -662,13 +680,13 @@ function renderTasksList() {
 
   if (items.length === 0) {
     const li = document.createElement("li");
-    li.className = `item status-${t.status}`;
+    li.className = "item";
     li.innerHTML = `<span class="muted">Sin resultados</span>`;
     list.appendChild(li);
     return;
   }
 
-  items.forEach((t, index) => {
+  items.forEach((t) => {
     const st = statusLabel(t.status);
     const pr = prBadge(t.priority);
 
@@ -677,6 +695,11 @@ function renderTasksList() {
     li.setAttribute("draggable", "true");
     li.dataset.id = t.id;
 
+    if (t.color) {
+      li.classList.add("hasColor");
+      li.style.setProperty("--task-border", t.color);
+    }
+
     li.innerHTML = `
       <div class="left">
         <div class="handle" aria-label="Arrastrar" title="Arrastrar">⋮⋮</div>
@@ -684,73 +707,31 @@ function renderTasksList() {
         <div style="min-width:0">
           <div class="title">${escapeHtml(t.title)}</div>
           <div class="subline">🗓 ${fmtISODate(t.startDate)} → ${fmtISODate(t.endDate)} · Creada: ${new Date(t.createdAt).toLocaleString()}</div>
-          <div class="badges">
-            <span class="badge ${pr.cls}">${pr.txt}</span>
-            <span class="badge ${st.cls}">${st.txt}</span>
-            ${t.category==="event" ? `<span class="badge type">Evento</span>` : ``}
-            ${(t.tags||[]).slice(0,3).map(tag=>`<span class="badge tag" style="--tag-h:${tagHue(tag)}">${escapeHtml(tag)}</span>`).join("")}
-            ${(t.tags||[]).length>3 ? `<span class="badge">+${(t.tags||[]).length-3}</span>` : ""}
-          </div>
+          <div class="tags">${t.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:10px">
-        <button class="iconBtn btnEdit" type="button" aria-label="Editar">✎</button>
-        <button class="iconBtn btnDel" type="button" aria-label="Eliminar">🗑️</button>
+      <div class="right">
+        <span class="badge ${escapeHtml(pr.cls)}">${escapeHtml(pr.txt)}</span>
+        <span class="badge ${escapeHtml(st.cls)}">${escapeHtml(st.txt)}</span>
+        <button class="btn btnGhost small edit" title="Editar">✎</button>
+        <button class="btn btnGhost small del" title="Eliminar">🗑</button>
       </div>
     `;
 
-    const chk = li.querySelector(".chk");
-    const btnDel = li.querySelector(".btnDel");
-    const btnEdit = li.querySelector(".btnEdit");
-
-    chk.addEventListener("change", () => {
-      updateTask(t.id, { status: chk.checked ? "done" : "todo" });
-      toast({ title: chk.checked ? "Completada" : "Reabierta", message: t.title, type:"ok" });
+    li.querySelector(".chk").addEventListener("change", (e) => {
+      updateTaskStatus(t.id, e.target.checked ? "done" : "todo");
     });
+    li.querySelector(".edit").addEventListener("click", () => openEdit(t));
+    li.querySelector(".del").addEventListener("click", () => confirmDelete(t.id));
 
-    btnEdit.addEventListener("click", () => openEdit(t));
-
-    btnDel.addEventListener("click", async () => {
-      const ok = await openModal({
-        title:"Eliminar tarea",
-        desc:`Se eliminará: "${t.title}"`,
-        okText:"Eliminar",
-        cancelText:"Cancelar"
-      });
-      if (!ok) return;
-      deleteTask(t.id);
-    });
-
-    // Drag & drop ordering
     li.addEventListener("dragstart", (e) => {
-      li.classList.add("dragging");
       e.dataTransfer.setData("text/plain", t.id);
-      e.dataTransfer.effectAllowed = "move";
+      li.classList.add("dragging");
     });
     li.addEventListener("dragend", () => li.classList.remove("dragging"));
 
     list.appendChild(li);
-  });
-
-  // Drop logic on list
-  list.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    const dragging = list.querySelector(".dragging");
-    if (!dragging) return;
-    const after = getDragAfterElement(list, e.clientY);
-    if (after == null) list.appendChild(dragging);
-    else list.insertBefore(dragging, after);
-  });
-
-  list.addEventListener("drop", () => {
-    const ids = [...list.querySelectorAll(".item[draggable='true']")].map(x => x.dataset.id);
-    // Rebuild state order based on current DOM order
-    const map = new Map(state.tasks.map(t => [t.id, t]));
-    state.tasks = ids.map(id => map.get(id)).filter(Boolean);
-    save();
-    toast({ title:"Orden actualizado", message:"Reordenación aplicada", type:"info" });
-    renderAll(false);
   });
 }
 
@@ -793,7 +774,9 @@ function renderKanban() {
     const pr = prBadge(t.priority);
     const card = document.createElement("div");
     card.className = "kCard";
-    card.setAttribute("draggable", "true");
+    
+    if (t.color) { card.classList.add("hasColor"); card.style.setProperty("--task-border", t.color); }
+card.setAttribute("draggable", "true");
     card.dataset.id = t.id;
     card.innerHTML = `
       <div class="kTitle">${escapeHtml(t.title)}</div>
@@ -856,6 +839,10 @@ function renderRecent() {
   for (const t of last) {
     const li = document.createElement("li");
     li.className = "miniItem";
+    if (t.color) {
+      li.classList.add("hasColor");
+      li.style.setProperty("--task-border", t.color);
+    }
     li.innerHTML = `
       <span>${escapeHtml(t.title)}</span>
       <span class="muted">${t.status === "done" ? "✔" : "•"}</span>
@@ -1268,7 +1255,9 @@ function renderCalendar(){
     const chips = items.map(t=>{
       const cls = `${t.status} ${t.category==="event"?"event":""}`;
       const typeTxt = t.category==="event" ? "Evento" : "Tarea";
-      return `<div class="calChip ${cls}" title="${escapeHtml(typeTxt)} · ${escapeHtml(t.title)}">
+      const style = t.color ? ` style="--task-border:${t.color}"` : ``;
+      const extra = t.color ? " hasColor" : "";
+      return `<div class="calChip ${cls}${extra}"${style} title="${escapeHtml(typeTxt)} · ${escapeHtml(t.title)}">
         <span class="k"></span>
         <span class="t">${escapeHtml(t.title)}</span>
       </div>`;
@@ -1322,7 +1311,8 @@ function bindEditModal() {
     const endDate = $("#editEnd").value || startDate || null;
     const tags = parseTags($("#editTags").value);
 
-    updateTask(editId, { title, priority, status, category, startDate, endDate, tags });
+    const color = ($("#editColor") && $("#editColor").value) ? $("#editColor").value : null;
+    updateTask(editId, { title, priority, status, category, startDate, endDate, tags, color });
     toast({ title:"Actualizada", message:title, type:"ok" });
     closeEdit();
   });
@@ -1346,45 +1336,7 @@ function bindCmdk() {
   });
 }
 
-function bindShortcuts() {
-  document.addEventListener("keydown", (e) => {
-    const isCmdkOpen = $("#cmdk").classList.contains("show");
-    const isModalOpen = $("#modal").classList.contains("show") || $("#editModal").classList.contains("show");
-
-    // Ctrl+K command palette
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-      e.preventDefault();
-      if (!isCmdkOpen) openCmdk();
-      else closeCmdk();
-      return;
-    }
-
-    // Esc closes modals/drawers/sidebar/cmdk
-    if (e.key === "Escape") {
-      if (isCmdkOpen) closeCmdk();
-      if ($("#modal").classList.contains("show")) closeModal(false);
-      if ($("#editModal").classList.contains("show")) closeEdit();
-      if ($("#notifyPanel").classList.contains("open")) closeDrawer();
-      closeSidebarMobile();
-      return;
-    }
-
-    if (isCmdkOpen || isModalOpen) return;
-
-    // "/" focus search
-    if (e.key === "/") {
-      e.preventDefault();
-      switchTab("tasks");
-      setTimeout(()=>$("#searchInput").focus(), 50);
-    }
-
-    // "n" new task
-    if (e.key.toLowerCase() === "n" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      switchTab("tasks");
-      setTimeout(()=>$("#taskInput").focus(), 50);
-    }
-  });
-}
+// Atajos de teclado eliminados por petición del usuario.
 
 function bindUx() {
   // password toggle
@@ -1435,14 +1387,18 @@ function bindUx() {
     const type = $("#taskType").value || "task";
     const start = $("#taskStart").value || null;
     const end = $("#taskEnd").value || start || null;
+    const color = ($("#taskColor") && $("#taskColor").value) ? $("#taskColor").value : null;
+
     addTask(
       $("#taskInput").value,
       $("#taskPriority").value,
       parseTags($("#taskTags").value),
       start,
       end,
-      type
+      type,
+      color
     );
+
     $("#taskInput").value = "";
     $("#taskTags").value = "";
     $("#taskStart").value = "";
@@ -1518,6 +1474,54 @@ function bindUx() {
 }
 
 /* ===================== Main ===================== */
+// --- PWA Install UI (Android prompt + iOS hint) ---
+let __deferredInstallPrompt = null;
+
+function isIOS() {
+  const ua = navigator.userAgent || navigator.vendor || window.opera;
+  return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+}
+function isStandalone() {
+  return window.matchMedia && window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function initInstallUI() {
+  const card = $("#installCard");
+  const btn = $("#btnInstall");
+  const iosHint = $("#iosHint");
+  if (!card || !btn || !iosHint) return;
+
+  // iOS: no beforeinstallprompt. Show hint if not already installed.
+  if (isIOS() && !isStandalone()) {
+    card.classList.remove("hidden");
+    iosHint.classList.remove("hidden");
+    btn.classList.add("hidden");
+  }
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    // Android/Chromium
+    e.preventDefault();
+    __deferredInstallPrompt = e;
+    if (!isStandalone()) {
+      card.classList.remove("hidden");
+      btn.classList.remove("hidden");
+    }
+  });
+
+  btn.addEventListener("click", async () => {
+    if (!__deferredInstallPrompt) return;
+    __deferredInstallPrompt.prompt();
+    try { await __deferredInstallPrompt.userChoice; } catch {}
+    __deferredInstallPrompt = null;
+    card.classList.add("hidden");
+  });
+
+  window.addEventListener("appinstalled", () => {
+    card.classList.add("hidden");
+    __deferredInstallPrompt = null;
+  });
+}
+
 function main() {
   load();
   initTheme();
@@ -1529,7 +1533,6 @@ function main() {
   bindModal();
   bindEditModal();
   bindCmdk();
-  bindShortcuts();
   bindUx();
 
   // service worker
