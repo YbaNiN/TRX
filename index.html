@@ -64,7 +64,15 @@
 
       <form id="editForm" class="formGrid">
         <div class="field">
-          <label class="lbl" for="editText">Título</label>
+          <label class="lbl" for="editType">Categoría</label>
+          <select id="editType">
+            <option value="task">Tarea</option>
+            <option value="event">Evento</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="lbl" for="editText">Nombre</label>
           <input id="editText" type="text" required />
         </div>
 
@@ -87,37 +95,41 @@
             </select>
           </div>
         </div>
-        <div class="row3">
-          <div class="field">
-            <label class="lbl" for="editType">Tipo</label>
-            <select id="editType">
-              <option value="task">Tarea</option>
-              <option value="event">Evento</option>
-            </select>
-          </div>
 
+        <div class="row2">
           <div class="field">
-            <label class="lbl" for="editStart">Comienzo</label>
+            <label class="lbl" for="editStart">Fecha inicio</label>
             <input id="editStart" type="date" />
           </div>
-
           <div class="field">
-            <label class="lbl" for="editEnd">Finalización</label>
-            <input id="editEnd" type="date" />
+            <label class="lbl" for="editStartTime">Hora inicio</label>
+            <input id="editStartTime" type="time" />
           </div>
         </div>
 
-
+        <div class="row2">
+          <div class="field">
+            <label class="lbl" for="editEnd">Fecha fin</label>
+            <input id="editEnd" type="date" />
+          </div>
+          <div class="field">
+            <label class="lbl" for="editEndTime">Hora fin</label>
+            <input id="editEndTime" type="time" />
+          </div>
+        </div>
 
         <div class="field">
           <label class="lbl" for="editTags">Tags (separados por coma)</label>
           <input id="editTags" type="text" placeholder="trabajo, estudio, música" />
         </div>
 
-        
         <div class="field">
           <label class="lbl" for="editColor">Color del borde</label>
-          <input id="editColor" class="colorInput" type="color" value="#3b82f6" />
+          <div class="colorRow">
+            <input id="editColor" class="colorInput" type="color" value="#3b82f6" />
+            <button id="saveFavColorEdit" class="btn ghost sm" type="button" title="Guardar color favorito">★</button>
+          </div>
+          <div id="favColorsEdit" class="favColors" aria-label="Colores favoritos"></div>
         </div>
 
         <div class="modalActions">
@@ -286,7 +298,11 @@
               <h2>Notas rápidas</h2>
               <span class="pill subtle" id="notesCount">0</span>
             </div>
-            <textarea id="notesArea" class="notes" placeholder="Escribe aquí..."></textarea>
+            <div class="notesBar">
+              <input id="noteInputMini" type="text" placeholder="Escribe una nota..." autocomplete="off" />
+              <button id="addNoteBtnMini" class="btn primary" type="button">Añadir</button>
+            </div>
+            <div id="notesBoardMini" class="notesBoard mini" aria-label="Notas (mini)"></div>
           </div>
         </div>
       </section>
@@ -312,20 +328,47 @@
           </div>
 
           <form id="taskForm" class="row">
-            <input id="taskInput" type="text" placeholder="Nueva tarea o evento..." autocomplete="off" />
-            <select id="taskType" aria-label="Tipo">
+            <select id="taskType" aria-label="Categoría">
               <option value="task" selected>Tarea</option>
               <option value="event">Evento</option>
             </select>
-            <input id="taskStart" type="date" aria-label="Comienzo" />
-            <input id="taskEnd" type="date" aria-label="Finalización" />
+            <input id="taskInput" type="text" placeholder="Nombre de la tarea/evento..." autocomplete="off" />
+
+            <div class="row2 inline2">
+              <div class="field">
+                <label class="lbl srOnly" for="taskStart">Fecha inicio</label>
+                <input id="taskStart" type="date" aria-label="Fecha de inicio" />
+              </div>
+              <div class="field">
+                <label class="lbl srOnly" for="taskStartTime">Hora inicio</label>
+                <input id="taskStartTime" type="time" aria-label="Hora de inicio" />
+              </div>
+            </div>
+
+            <div class="row2 inline2">
+              <div class="field">
+                <label class="lbl srOnly" for="taskEnd">Fecha fin</label>
+                <input id="taskEnd" type="date" aria-label="Fecha de finalización" />
+              </div>
+              <div class="field">
+                <label class="lbl srOnly" for="taskEndTime">Hora fin</label>
+                <input id="taskEndTime" type="time" aria-label="Hora de finalización" />
+              </div>
+            </div>
+
             <input id="taskTags" type="text" placeholder="Tags: trabajo, música..." />
             <select id="taskPriority" aria-label="Prioridad">
               <option value="low">Baja</option>
               <option value="med" selected>Media</option>
               <option value="high">Alta</option>
             </select>
-            <input id="taskColor" class="colorInput" type="color" value="#3b82f6" aria-label="Color del borde" title="Color del borde" />
+
+            <div class="colorBox">
+              <input id="taskColor" class="colorInput" type="color" value="#3b82f6" aria-label="Color del borde" title="Color del borde" />
+              <button id="saveFavColor" class="btn ghost sm" type="button" title="Guardar color favorito">★</button>
+            </div>
+            <div id="favColors" class="favColors" aria-label="Colores favoritos"></div>
+
             <button class="btn primary" type="submit">Añadir</button>
           </form>
 
@@ -395,7 +438,17 @@
             <h2>Notas</h2>
             <span class="pill subtle" id="notesCount_dup">0</span>
           </div>
-          <textarea id="notesArea_dup" class="notes" placeholder="Escribe aquí..."></textarea>
+
+          <div class="notesBar">
+            <input id="noteInput" type="text" placeholder="Escribe una nota rápida..." autocomplete="off" />
+            <button id="addNoteBtn" class="btn primary" type="button">Añadir</button>
+          </div>
+
+          <div class="notesMeta">
+            <span class="muted">Tip: fija las importantes para que salgan arriba.</span>
+          </div>
+
+          <div id="notesBoard" class="notesBoard" aria-label="Notas tipo post-it"></div>
         </div>
       </section>
 
