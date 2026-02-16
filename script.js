@@ -6,6 +6,7 @@ const LS = {
   activity: "trx_activity_v5",
   session: "trx_session_v4",
   notifs: "trx_notifs_v1",
+  favColors: "trx_fav_colors_v1",
 };
 
 const USERS = {
@@ -24,7 +25,8 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 const state = {
   tasks: [],
-  notes: "",
+  notes: [],
+  favColors: [],
   activityDays: [],
   session: null,
   notifs: [],
@@ -55,6 +57,13 @@ function parseISODate(s){
 function fmtISODate(s){
   const d = parseISODate(s);
   return d ? d.toLocaleDateString() : "";
+}
+
+// HH:MM -> HH:MM (para mostrar en UI). Mantiene formato y valida.
+function fmtTime(hhmm){
+  const s = String(hhmm || "").trim();
+  if (!/^\d{2}:\d{2}$/.test(s)) return "";
+  return s;
 }
 function daysBetween(a,b){
   const ms = 24*60*60*1000;
@@ -119,7 +128,23 @@ function activityStreak() {
 /* ===================== Storage ===================== */
 function load() {
   try { state.tasks = JSON.parse(localStorage.getItem(LS.tasks) || "[]"); } catch { state.tasks = []; }
-  state.notes = localStorage.getItem(LS.notes) || "";
+  // Notes migration: old versions stored a single textarea string
+  try {
+    const rawNotes = localStorage.getItem(LS.notes);
+    const parsed = rawNotes ? JSON.parse(rawNotes) : null;
+    if (Array.isArray(parsed)) {
+      state.notes = parsed;
+    } else if (typeof rawNotes === "string" && rawNotes.trim()) {
+      state.notes = [{ id: uid(), text: rawNotes.trim(), pinned: false, createdAt: Date.now() }];
+    } else {
+      state.notes = [];
+    }
+  } catch {
+    const rawNotes = localStorage.getItem(LS.notes) || "";
+    state.notes = rawNotes && rawNotes.trim() ? [{ id: uid(), text: rawNotes.trim(), pinned: false, createdAt: Date.now() }] : [];
+  }
+
+  try { state.favColors = JSON.parse(localStorage.getItem(LS.favColors) || "[]"); } catch { state.favColors = []; }
   try { state.activityDays = JSON.parse(localStorage.getItem(LS.activity) || "[]"); } catch { state.activityDays = []; }
   try { state.session = JSON.parse(localStorage.getItem(LS.session) || "null"); } catch { state.session = null; }
   try { state.notifs = JSON.parse(localStorage.getItem(LS.notifs) || "[]"); } catch { state.notifs = []; }
@@ -134,7 +159,8 @@ function load() {
 
 function save() {
   localStorage.setItem(LS.tasks, JSON.stringify(state.tasks));
-  localStorage.setItem(LS.notes, state.notes);
+  localStorage.setItem(LS.notes, JSON.stringify(state.notes));
+  localStorage.setItem(LS.favColors, JSON.stringify(state.favColors || []));
   localStorage.setItem(LS.activity, JSON.stringify(state.activityDays));
   localStorage.setItem(LS.notifs, JSON.stringify(state.notifs));
   localStorage.setItem(LS.dueNotifs, JSON.stringify(state.dueNotifs || {}));
@@ -334,8 +360,11 @@ function openEdit(t) {
   $("#editType").value = t.category || "task";
   $("#editStart").value = t.startDate || "";
   $("#editEnd").value = t.endDate || "";
+  if ($("#editStartTime")) $("#editStartTime").value = t.startTime || "";
+  if ($("#editEndTime")) $("#editEndTime").value = t.endTime || "";
   $("#editTags").value = (t.tags || []).join(", ");
     if ($("#editColor")) $("#editColor").value = (t.color && /^#[0-9a-f]{6}$/i.test(t.color)) ? t.color : "#3b82f6";
+  renderFavColors();
 const m = $("#editModal");
   m.classList.add("show");
   m.setAttribute("aria-hidden", "false");
@@ -549,7 +578,13 @@ function normalizeTask(t) {
   if (!t.category) t.category = "task";
 
 
-  // Color del borde (hex #RRGGBB)
+  // Horas: startTime/endTime en HH:MM (opcional)
+  if (!t.startTime) t.startTime = "";
+  if (!t.endTime) t.endTime = "";
+  if (t.startTime && !/^\d{2}:\d{2}$/.test(String(t.startTime))) t.startTime = "";
+  if (t.endTime && !/^\d{2}:\d{2}$/.test(String(t.endTime))) t.endTime = "";
+
+// Color del borde (hex #RRGGBB)
   if (!t.color) t.color = null;
   if (t.color && !/^#[0-9a-f]{6}$/i.test(String(t.color))) t.color = null;
   // Fechas: startDate/endDate en yyyy-mm-dd
@@ -561,6 +596,13 @@ function normalizeTask(t) {
   const s = parseISODate(t.startDate);
   const e = parseISODate(t.endDate);
   if (s && e && e < s) t.endDate = t.startDate;
+  // Si es el mismo día y ambas horas existen, fuerza endTime >= startTime
+  if (t.startDate === t.endDate && t.startTime && t.endTime){
+    const a = t.startTime.split(":").map(Number);
+    const b = t.endTime.split(":").map(Number);
+    if (b[0]*60+b[1] < a[0]*60+a[1]) t.endTime = t.startTime;
+  }
+
 
   t.done = t.status === "done";
   if (typeof t.doneAt === "undefined") t.doneAt = t.done ? Date.now() : null;
@@ -569,7 +611,7 @@ function normalizeTask(t) {
   return t;
 }
 
-function addTask(title, priority, tags, startDate, endDate, category, color) {
+function addTask(title, priority, tags, startDate, endDate, startTime, endTime, category, color) {
   const clean = (title || "").trim();
   if (!clean) return;
 
@@ -581,6 +623,8 @@ function addTask(title, priority, tags, startDate, endDate, category, color) {
     category: category || "task",
     startDate: startDate || null,
     endDate: endDate || null,
+    startTime: startTime || "",
+    endTime: endTime || "",
     tags: tags || [],
     createdAt: Date.now(),
     color: color || null,
@@ -707,7 +751,7 @@ function renderTasksList() {
         <input class="chk" type="checkbox" ${t.status === "done" ? "checked" : ""} aria-label="Marcar como hecha" />
         <div style="min-width:0">
           <div class="title">${escapeHtml(t.title)}</div>
-          <div class="subline">🗓 ${fmtISODate(t.startDate)} → ${fmtISODate(t.endDate)} · Creada: ${new Date(t.createdAt).toLocaleString()}</div>
+          <div class="subline">🗓 ${fmtISODate(t.startDate)}${t.startTime?` ${fmtTime(t.startTime)}`:""} → ${fmtISODate(t.endDate)}${t.endTime?` ${fmtTime(t.endTime)}`:""} · Creada: ${new Date(t.createdAt).toLocaleString()}</div>
           <div class="tags">${t.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>
         </div>
       </div>
@@ -853,16 +897,148 @@ function renderRecent() {
 }
 
 function renderNotes() {
-  const area = $("#notesArea");
-  const areaDup = $("#notesArea_dup");
+  const board = $("#notesBoard");
+  const mini = $("#notesBoardMini");
   const count = $("#notesCount");
   const countDup = $("#notesCount_dup");
-
-  if (area) area.value = state.notes;
-  if (areaDup) areaDup.value = state.notes;
-
   if (count) count.textContent = String(state.notes.length);
   if (countDup) countDup.textContent = String(state.notes.length);
+
+  const notes = [...(state.notes||[])].map(n=>({
+    ...n,
+    pinned: !!n.pinned,
+    createdAt: n.createdAt || Date.now()
+  }));
+  notes.sort((a,b)=> (b.pinned?1:0)-(a.pinned?1:0) || (b.createdAt - a.createdAt));
+
+  const renderInto = (container, subset) => {
+    if (!container) return;
+    container.innerHTML = "";
+    for (const n of subset){
+      const el = document.createElement("div");
+      el.className = "note" + (n.pinned ? " pinned" : "");
+      el.dataset.id = n.id;
+
+      const created = new Date(n.createdAt).toLocaleString();
+      el.innerHTML = `
+        <div class="noteTop">
+          <div class="noteText">${escapeHtml(n.text)}</div>
+        </div>
+        <div class="noteMeta2">
+          <span class="muted">${created}</span>
+          <div class="noteBtns">
+            <button class="noteBtn pin" type="button" title="${n.pinned?"Desfijar":"Fijar"}">${n.pinned?"📌":"📍"}</button>
+            <button class="noteBtn danger del" type="button" title="Eliminar">🗑</button>
+          </div>
+        </div>
+      `;
+      container.appendChild(el);
+
+      el.querySelector(".pin").addEventListener("click", ()=> togglePinNote(n.id));
+      el.querySelector(".del").addEventListener("click", ()=>{
+        // Usa el modal de confirmación estándar
+        openModal({
+          title: "Eliminar nota",
+          desc: "¿Quieres eliminar esta nota?",
+          okText: "Eliminar",
+          cancelText: "Cancelar",
+        }).then((ok)=>{ if (ok) deleteNote(n.id); });
+      });
+    }
+    if (subset.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "muted";
+      empty.textContent = "Aún no hay notas.";
+      container.appendChild(empty);
+    }
+  };
+
+  renderInto(board, notes);
+  // Mini: primero fijadas (máx 2), si no hay, las 2 más recientes
+  const pinned = notes.filter(n=>n.pinned).slice(0,2);
+  const miniList = pinned.length ? pinned : notes.slice(0,2);
+  renderInto(mini, miniList);
+}
+
+
+
+
+
+/* ===================== Favorite colors ===================== */
+function normalizeHex(c){
+  const s = String(c||"").trim();
+  if (/^#[0-9a-f]{6}$/i.test(s)) return s.toLowerCase();
+  return null;
+}
+function addFavColor(color){
+  const c = normalizeHex(color);
+  if (!c) return;
+  if (!state.favColors) state.favColors = [];
+  state.favColors = state.favColors.filter(x=>normalizeHex(x) && normalizeHex(x)!==c);
+  state.favColors.unshift(c);
+  state.favColors = state.favColors.slice(0,10);
+  save();
+  renderFavColors();
+}
+function renderFavColors(){
+  const wrap = $("#favColors");
+  const wrap2 = $("#favColorsEdit");
+  const colors = (state.favColors || []).map(normalizeHex).filter(Boolean).slice(0,10);
+
+  const renderInto = (el, currentGetter, onPick)=>{
+    if (!el) return;
+    el.innerHTML = "";
+    for (const c of colors){
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "sw";
+      b.style.background = c;
+      const cur = currentGetter ? normalizeHex(currentGetter()) : null;
+      if (cur && cur === c) b.classList.add("active");
+      b.title = c;
+      b.addEventListener("click", ()=> onPick(c));
+      el.appendChild(b);
+    }
+    if (colors.length===0){
+      const s = document.createElement("span");
+      s.className = "muted";
+      s.textContent = "Guarda hasta 10 colores con ★";
+      el.appendChild(s);
+    }
+  };
+
+  renderInto(wrap, ()=> $("#taskColor")?.value, (c)=>{
+    const inp = $("#taskColor"); if (inp) inp.value = c;
+    renderFavColors();
+  });
+  renderInto(wrap2, ()=> $("#editColor")?.value, (c)=>{
+    const inp = $("#editColor"); if (inp) inp.value = c;
+    renderFavColors();
+  });
+}
+
+/* ===================== Notes (Post-its) ===================== */
+function addNote(text){
+  const v = String(text||"").trim();
+  if (!v) return;
+  const note = { id: uid(), text: v, pinned: false, createdAt: Date.now() };
+  state.notes.unshift(note);
+  save();
+  renderNotes();
+}
+
+function togglePinNote(id){
+  const n = state.notes.find(x=>x.id===id);
+  if (!n) return;
+  n.pinned = !n.pinned;
+  save();
+  renderNotes();
+}
+
+function deleteNote(id){
+  state.notes = state.notes.filter(x=>x.id!==id);
+  save();
+  renderNotes();
 }
 
 /* ===================== Skeletons ===================== */
@@ -1143,7 +1319,7 @@ async function resetAll() {
   localStorage.removeItem(LS.notifs);
 
   state.tasks = [];
-  state.notes = "";
+  state.notes = [];
   state.activityDays = [];
   state.notifs = [];
   state.tagFilter = null;
@@ -1198,21 +1374,36 @@ function monthLabel(year, monthIndex){
 }
 
 function tasksForDay(dayDate){
+  // Solo mostramos "puntos": comienzo y fin (no todos los días del rango)
   const out = [];
-  const dayStart = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate(), 0,0,0,0);
+  const day0 = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate(), 0,0,0,0);
+
   for (const t of state.tasks){
     const s = parseISODate(t.startDate);
     const e = parseISODate(t.endDate);
     if (!s || !e) continue;
+
     const s0 = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0,0,0,0);
     const e0 = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 0,0,0,0);
-    if (dayStart >= s0 && dayStart <= e0) out.push(t);
+
+    if (day0.getTime() === s0.getTime()){
+      out.push({ task: t, point: "start" });
+    }
+    if (day0.getTime() === e0.getTime() && e0.getTime() !== s0.getTime()){
+      out.push({ task: t, point: "end" });
+    }
   }
-  // Orden: primero eventos, luego por prioridad y fecha
+
   const pr = { high:0, med:1, low:2 };
-  out.sort((a,b)=> (a.category==="event"?0:1)-(b.category==="event"?0:1) || (pr[a.priority]??9)-(pr[b.priority]??9) || (a.createdAt-b.createdAt));
+  out.sort((a,b)=>
+    (a.task.category==="event"?0:1)-(b.task.category==="event"?0:1) ||
+    (pr[a.task.priority]??9)-(pr[b.task.priority]??9) ||
+    (a.task.createdAt-b.task.createdAt) ||
+    (a.point==="start"?0:1)-(b.point==="start"?0:1)
+  );
   return out;
 }
+
 
 function renderCalendar(){
   const grid = $("#calendarGrid");
@@ -1250,17 +1441,22 @@ function renderCalendar(){
 
     const isToday = cellDate.getFullYear()===now.getFullYear() && cellDate.getMonth()===now.getMonth() && cellDate.getDate()===now.getDate();
 
-    const items = tasksForDay(cellDate).slice(0,4);
-    const more = Math.max(0, tasksForDay(cellDate).length - items.length);
+    const all = tasksForDay(cellDate);
+    const items = all.slice(0,4);
+    const more = Math.max(0, all.length - items.length);
 
-    const chips = items.map(t=>{
-      const cls = `${t.status} ${t.category==="event"?"event":""}`;
+    const chips = items.map(({task:t, point})=>{
+      const cls = `${t.status} ${t.category==="event"?"event":""} ${point}`;
       const typeTxt = t.category==="event" ? "Evento" : "Tarea";
       const style = t.color ? ` style="--task-border:${t.color}"` : ``;
       const extra = t.color ? " hasColor" : "";
-      return `<div class="calChip ${cls}${extra}"${style} title="${escapeHtml(typeTxt)} · ${escapeHtml(t.title)}">
+      const badge = point==="start" ? "⏵" : "⏹";
+      const when = point==="start"
+        ? `${fmtISODate(t.startDate)}${t.startTime?` ${fmtTime(t.startTime)}`:""}`
+        : `${fmtISODate(t.endDate)}${t.endTime?` ${fmtTime(t.endTime)}`:""}`;
+      return `<div class="calChip ${cls}${extra}"${style} title="${escapeHtml(typeTxt)} · ${escapeHtml(t.title)} · ${escapeHtml(point==="start"?"Comienzo":"Fin")} ${escapeHtml(when)}">
         <span class="k"></span>
-        <span class="t">${escapeHtml(t.title)}</span>
+        <span class="t">${badge} ${escapeHtml(t.title)}</span>
       </div>`;
     }).join("");
 
@@ -1310,10 +1506,12 @@ function bindEditModal() {
     const category = $("#editType").value || "task";
     const startDate = $("#editStart").value || null;
     const endDate = $("#editEnd").value || startDate || null;
+    const startTime = ($("#editStartTime") && $("#editStartTime").value) ? $("#editStartTime").value : "";
+    const endTime = ($("#editEndTime") && $("#editEndTime").value) ? $("#editEndTime").value : "";
     const tags = parseTags($("#editTags").value);
 
     const color = ($("#editColor") && $("#editColor").value) ? $("#editColor").value : null;
-    updateTask(editId, { title, priority, status, category, startDate, endDate, tags, color });
+    updateTask(editId, { title, priority, status, category, startDate, endDate, startTime, endTime, tags, color });
     toast({ title:"Actualizada", message:title, type:"ok" });
     closeEdit();
   });
@@ -1388,6 +1586,8 @@ function bindUx() {
     const type = $("#taskType").value || "task";
     const start = $("#taskStart").value || null;
     const end = $("#taskEnd").value || start || null;
+    const startTime = ($("#taskStartTime") && $("#taskStartTime").value) ? $("#taskStartTime").value : "";
+    const endTime = ($("#taskEndTime") && $("#taskEndTime").value) ? $("#taskEndTime").value : "";
     const color = ($("#taskColor") && $("#taskColor").value) ? $("#taskColor").value : null;
 
     addTask(
@@ -1396,6 +1596,8 @@ function bindUx() {
       parseTags($("#taskTags").value),
       start,
       end,
+      startTime,
+      endTime,
       type,
       color
     );
@@ -1404,8 +1606,26 @@ function bindUx() {
     $("#taskTags").value = "";
     $("#taskStart").value = "";
     $("#taskEnd").value = "";
+    if ($("#taskStartTime")) $("#taskStartTime").value = "";
+    if ($("#taskEndTime")) $("#taskEndTime").value = "";
     $("#taskType").value = "task";
   });
+
+  // favorite colors
+  if ($("#saveFavColor") && $("#taskColor")){
+    $("#saveFavColor").addEventListener("click", ()=>{
+      addFavColor($("#taskColor").value);
+      toast({ title:"Color", message:"Guardado en favoritos", type:"ok", timeout: 1200 });
+    });
+  }
+  if ($("#saveFavColorEdit") && $("#editColor")){
+    $("#saveFavColorEdit").addEventListener("click", ()=>{
+      addFavColor($("#editColor").value);
+      toast({ title:"Color", message:"Guardado en favoritos", type:"ok", timeout: 1200 });
+    });
+  }
+  if ($("#taskColor")) $("#taskColor").addEventListener("input", ()=> renderFavColors());
+  if ($("#editColor")) $("#editColor").addEventListener("input", ()=> renderFavColors());
 
   $("#searchInput").addEventListener("input", () => renderAll(false));
   $("#filterSelect").addEventListener("change", () => renderAll(false));
@@ -1433,17 +1653,28 @@ function bindUx() {
   }
 
   // notes
-  const onNotes = (val) => {
-    state.notes = val;
-    markActivity();
-    save();
-    renderNotes();
-    toast({ title:"Notas", message:"Guardadas", type:"ok", timeout: 1400 });
+  const wireNotesBar = (inputId, btnId) => {
+    const inp = $(inputId);
+    const btn = $(btnId);
+    if (!inp || !btn) return;
+    btn.addEventListener("click", ()=>{
+      addNote(inp.value);
+      inp.value = "";
+      toast({ title:"Nota", message:"Guardada", type:"ok", timeout: 1200 });
+    });
+    inp.addEventListener("keydown", (e)=>{
+      if (e.key === "Enter"){
+        e.preventDefault();
+        btn.click();
+      }
+    });
   };
-  $("#notesArea").addEventListener("input", (e) => onNotes(e.target.value));
-  $("#notesArea_dup").addEventListener("input", (e) => onNotes(e.target.value));
 
-  // stats
+  wireNotesBar("#noteInput", "#addNoteBtn");
+  wireNotesBar("#noteInputMini", "#addNoteBtnMini");
+  renderNotes();
+
+// stats
   $("#btnRecalc").addEventListener("click", () => redrawChartsIfVisible());
   $("#rangeSelect").addEventListener("change", () => redrawChartsIfVisible());
   window.addEventListener("resize", () => redrawChartsIfVisible());
