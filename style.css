@@ -458,6 +458,19 @@ h2{margin:0; font-size:15px; letter-spacing:.2px}
 .statCard .v{font-size:28px; font-weight:1000; margin-top:6px}
 .statCard .s{color:var(--muted); font-size:12px; margin-top:4px}
 
+
+/* Color picker (borde de tarjetas) */
+.colorInput{
+  width:44px;
+  height:40px;
+  padding:0;
+  border-radius:12px;
+  border:1px solid var(--stroke);
+  background: rgba(255,255,255,.03);
+  cursor:pointer;
+}
+.colorInput::-webkit-color-swatch-wrapper{ padding:6px; }
+.colorInput::-webkit-color-swatch{ border:none; border-radius:10px; }
 .row{display:flex; gap:10px; margin:10px 0}
 .row.compact{margin:0}
 .row2{display:flex; gap:10px}
@@ -536,6 +549,7 @@ input:focus, select:focus, textarea:focus{
   gap:10px;
   padding:12px;
   border:1px solid var(--stroke);
+  border-left:4px solid transparent;
   border-radius:16px;
   background: rgba(255,255,255,.03);
   transition: transform var(--t) ease, background var(--t) ease;
@@ -591,6 +605,7 @@ input:focus, select:focus, textarea:focus{
 }
 .miniItem{
   border:1px solid var(--stroke);
+  border-left:4px solid transparent;
   border-radius:16px;
   padding:12px;
   display:flex;
@@ -666,6 +681,7 @@ input:focus, select:focus, textarea:focus{
 }
 .kCard{
   border:1px solid var(--stroke);
+  border-left:4px solid transparent;
   background: rgba(255,255,255,.03);
   border-radius:16px;
   padding:12px;
@@ -745,6 +761,18 @@ canvas{
 .item.status-doing{ border-left: 4px solid rgba(255,200,80,.7); }
 .item.status-done{ border-left: 4px solid rgba(102,227,168,.7); }
 
+/* Color personalizado: si existe, sustituye el borde por estado */
+.item.hasColor{ border-left-color: var(--task-border); }
+
+.miniItem{ border-left: 4px solid transparent; }
+.miniItem.hasColor{ border-left-color: var(--task-border); }
+
+.kCard{ border-left: 4px solid transparent; }
+.kCard.hasColor{ border-left-color: var(--task-border); }
+
+.calChip{ border-left: 4px solid transparent; }
+.calChip.hasColor{ border-left-color: var(--task-border); }
+
 .badge.todo{ background: rgba(180,190,210,.10); border-color: rgba(180,190,210,.25); color: var(--c-todo); }
 .badge.doing{ background: rgba(255,200,80,.10); border-color: rgba(255,200,80,.30); color: var(--c-doing); }
 .badge.done{ background: rgba(102,227,168,.10); border-color: rgba(102,227,168,.30); color: var(--c-done); }
@@ -816,6 +844,7 @@ canvas{
   padding:6px 8px;
   border-radius:12px;
   border:1px solid var(--stroke);
+  border-left:4px solid transparent;
   background: rgba(255,255,255,.03);
   font-size:12px;
   line-height:1.1;
@@ -832,3 +861,9 @@ canvas{
 @media (max-width: 720px){
   .row3{ grid-template-columns: 1fr; }
 }
+
+
+.installCard{margin-bottom:12px}
+.installRow{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.iosHint{margin-top:8px;font-size:12px;opacity:.9}
+.colorInput{width:42px;height:36px;padding:0;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:transparent}
