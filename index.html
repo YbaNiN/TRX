@@ -252,16 +252,7 @@
 
       <!-- OVERVIEW -->
       <section class="panel active" id="overview" role="tabpanel">
-        <div id="installCard" class="card installCard hidden">
-          <div class="installRow">
-            <div>
-              <div class="k">Instala TRX Panel</div>
-              <div class="s">Úsala como app en tu móvil (offline incluido).</div>
-              <div id="iosHint" class="iosHint hidden">En iPhone/iPad: pulsa <b>Compartir</b> y elige <b>Añadir a pantalla de inicio</b>.</div>
-            </div>
-            <button id="btnInstall" class="btn primary">Instalar</button>
-          </div>
-        </div>
+        
 
         <div class="grid3">
           <div class="card statCard">
@@ -457,5 +448,73 @@
   </div>
 
   <script src="script.js"></script>
+<!-- Install FAB (Mobile) -->
+<button id="installFab" class="installFab" hidden aria-label="Instalar app">⬇️ Instalar</button>
+
+<!-- Install Banner -->
+<div id="installBanner" class="installBanner" hidden>
+  <div class="installCardPro">
+    <div class="installLeft">
+      <img class="installIcon" src="./icons/icon-192.png" alt="TRX icon" />
+      <div class="installText">
+        <div class="installTitle">Instala TRX Panel</div>
+        <div class="installSub">Acceso rápido, pantalla completa y funciona sin conexión.</div>
+      </div>
+    </div>
+
+    <div class="installActions">
+      <button id="btnInstallApp" class="installBtn btnPrimary">Instalar</button>
+      <button id="btnInstallHelp" class="installBtn btnGhost">Cómo instalar</button>
+      <button id="btnInstallClose" class="btnIcon" aria-label="Cerrar">✕</button>
+    </div>
+  </div>
+</div>
+
+<!-- iOS Install Help (Bottom Sheet) -->
+<div id="installHelp" class="sheet" hidden>
+  <div class="sheetBackdrop"></div>
+  <div class="sheetPanel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheetHandle"></div>
+    <div class="sheetHeader">
+      <div>
+        <div id="sheetTitle" class="sheetTitle">Instalar en iPhone / iPad</div>
+        <div class="sheetSub">Safari → Compartir → Añadir a pantalla de inicio</div>
+      </div>
+      <button id="btnSheetClose" class="btnIcon" aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="sheetSteps">
+      <div class="step">
+        <div class="stepNum">1</div>
+        <div class="stepBody">
+          <div class="stepTitle">Abre esta web en Safari</div>
+          <div class="stepDesc">En iOS solo se instala desde Safari.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="stepNum">2</div>
+        <div class="stepBody">
+          <div class="stepTitle">Pulsa Compartir</div>
+          <div class="stepDesc">El botón <strong>Compartir</strong> (cuadrado con flecha hacia arriba).</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="stepNum">3</div>
+        <div class="stepBody">
+          <div class="stepTitle">Añadir a pantalla de inicio</div>
+          <div class="stepDesc">Ponle nombre y confirma.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheetFooter">
+      <button id="btnSheetOk" class="installBtn btnPrimary" style="width:100%">Entendido</button>
+    </div>
+  </div>
+</div>
+
+
 </body>
 </html>
