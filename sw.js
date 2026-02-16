@@ -1,12 +1,13 @@
 /* sw.js — TRX Panel (App Shell cache-first + fallback a index.html) */
 
-const CACHE_VERSION = "v1"; // <- súbelo (v2, v3...) cuando publiques cambios
+const CACHE_VERSION = "v2"; // <- súbelo (v2, v3...) cuando publiques cambios
 const CACHE_NAME = `trx-panel-${CACHE_VERSION}`;
 
 // App Shell (lo imprescindible para que la PWA arranque offline)
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./offline.html",
   "./style.css",
   "./script.js",
   "./manifest.json",
@@ -79,7 +80,9 @@ self.addEventListener("fetch", (event) => {
       } catch (err) {
         // 3) Offline fallback: devuelve index.html
         // (ideal para que la app cargue aunque falte el recurso pedido)
-        return (await cache.match("./index.html")) || Response.error();
+        const navFallback = (await cache.match("./index.html")) || (await cache.match("./offline.html"));
+        if (event.request.mode === "navigate") return navFallback || Response.error();
+        return (await cache.match("./offline.html")) || navFallback || Response.error();
       }
     })()
   );
