@@ -7,6 +7,8 @@ const LS = {
   session: "trx_session_v4",
   notifs: "trx_notifs_v1",
   favColors: "trx_fav_colors_v1",
+  dueNotifs: "trx_due_notifs_v1",
+  timer: "trx_timer_v1",
 };
 
 const USERS = {
@@ -32,6 +34,14 @@ const state = {
   notifs: [],
   tagFilter: null,
   view: "list", // list | kanban
+  timer: {
+    durationMs: 25 * 1000,
+    remainingMs: 25 * 1000,
+    running: false,
+    endAt: null,
+    volume: 0.5,
+    finishedAt: null,
+  },
 };
 
 function uid() {
@@ -150,6 +160,17 @@ function load() {
   try { state.notifs = JSON.parse(localStorage.getItem(LS.notifs) || "[]"); } catch { state.notifs = []; }
   try { state.dueNotifs = JSON.parse(localStorage.getItem(LS.dueNotifs) || "{}"); } catch { state.dueNotifs = {}; }
 
+  // Timer
+  try { state.timer = JSON.parse(localStorage.getItem(LS.timer) || "null") || state.timer; } catch {}
+  // Normaliza timer
+  if (!state.timer || typeof state.timer !== "object") state.timer = { durationMs: 25*1000, remainingMs: 25*1000, running:false, endAt:null, volume:0.5, finishedAt:null };
+  state.timer.durationMs = Math.max(1000, Number(state.timer.durationMs) || 25*1000);
+  state.timer.remainingMs = Math.min(state.timer.durationMs, Math.max(0, Number(state.timer.remainingMs) || state.timer.durationMs));
+  state.timer.running = Boolean(state.timer.running);
+  state.timer.endAt = state.timer.endAt ? Number(state.timer.endAt) : null;
+  state.timer.volume = Math.max(0, Math.min(1, Number(state.timer.volume) || 0));
+  state.timer.finishedAt = state.timer.finishedAt ? Number(state.timer.finishedAt) : null;
+
   const v = localStorage.getItem("trx_view_v1");
   if (v) state.view = v;
 
@@ -166,6 +187,7 @@ function save() {
   localStorage.setItem(LS.dueNotifs, JSON.stringify(state.dueNotifs || {}));
   if (state.session) localStorage.setItem(LS.session, JSON.stringify(state.session));
   localStorage.setItem("trx_view_v1", state.view);
+  localStorage.setItem(LS.timer, JSON.stringify(state.timer || null));
 }
 
 /* ===================== Theme + Density ===================== */
@@ -405,6 +427,7 @@ function renderCmdk(q) {
     { name:"Ir a Resumen", desc:"Abrir resumen", key:"G", run:()=>switchTab("overview") },
     { name:"Ir a Tareas", desc:"Abrir tareas", key:"G", run:()=>switchTab("tasks") },
     { name:"Ir a Calendario", desc:"Abrir calendario", key:"G", run:()=>switchTab("calendar") },
+    { name:"Ir a Temporizador", desc:"Abrir temporizador", key:"G", run:()=>switchTab("timer") },
     { name:"Ir a Stats", desc:"Abrir estadísticas", key:"G", run:()=>switchTab("stats"), admin:true },
     { name:"Cambiar Tema", desc:"Claro/Oscuro", key:"T", run:()=>toggleTheme() },
     { name:"Activar notificaciones", desc:"Permitir avisos de vencimiento", key:"N", run:()=>{
@@ -547,6 +570,251 @@ function switchTab(id) {
     showStatsSkeleton();
     setTimeout(() => { hideStatsSkeleton(); redrawChartsIfVisible(); }, 260);
   }
+  if (id === "timer") {
+    setTimeout(() => { renderTimerUI(true); }, 20);
+  }
+}
+
+
+/* ===================== Timer ===================== */
+let timerTickHandle = null;
+
+function clampTimerParts(min, sec){
+  const m = Math.max(0, Math.min(999, Number(min) || 0));
+  const s = Math.max(0, Math.min(59, Number(sec) || 0));
+  return { m, s };
+}
+function msFromParts(min, sec){
+  const { m, s } = clampTimerParts(min, sec);
+  return (m * 60 + s) * 1000;
+}
+function partsFromMs(ms){
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return { m, s };
+}
+function fmtTimer(ms){
+  const { m, s } = partsFromMs(ms);
+  return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+
+function setTimerDuration(ms){
+  const dur = Math.max(1000, Math.min(999*60*1000 + 59*1000, Number(ms) || 0));
+  state.timer.durationMs = dur;
+  if (!state.timer.running){
+    state.timer.remainingMs = dur;
+    state.timer.endAt = null;
+  } else {
+    // si está corriendo, ajusta el final manteniendo el % restante
+    const now = Date.now();
+    const rem = Math.max(0, (state.timer.endAt || now) - now);
+    const ratio = state.timer.durationMs ? rem / state.timer.durationMs : 1;
+    state.timer.remainingMs = Math.round(dur * ratio);
+    state.timer.endAt = now + state.timer.remainingMs;
+  }
+  save();
+  renderTimerUI();
+}
+
+function readTimerInputs(){
+  const minEl = $("#timerMin");
+  const secEl = $("#timerSec");
+  if (!minEl || !secEl) return null;
+  const ms = msFromParts(minEl.value, secEl.value);
+  return ms;
+}
+
+function syncTimerInputsFromState(){
+  const minEl = $("#timerMin");
+  const secEl = $("#timerSec");
+  if (!minEl || !secEl) return;
+  const { m, s } = partsFromMs(state.timer.durationMs || 0);
+  minEl.value = String(m);
+  secEl.value = String(s);
+}
+
+function setTimerPreset(minutes){
+  const ms = Math.max(1000, Number(minutes) * 60 * 1000);
+  setTimerDuration(ms);
+  toast({ title:"Temporizador", message:`Preset: ${minutes} min`, type:"info", timeout: 1200 });
+}
+
+function timerStart(){
+  // si estaba a 0, vuelve a cargar duración
+  if ((state.timer.remainingMs || 0) <= 0) state.timer.remainingMs = state.timer.durationMs;
+  state.timer.running = true;
+  state.timer.finishedAt = null;
+  state.timer.endAt = Date.now() + (state.timer.remainingMs || 0);
+  save();
+  renderTimerUI();
+}
+
+function timerPause(){
+  if (!state.timer.running) return;
+  const now = Date.now();
+  state.timer.remainingMs = Math.max(0, (state.timer.endAt || now) - now);
+  state.timer.running = false;
+  state.timer.endAt = null;
+  save();
+  renderTimerUI();
+}
+
+function timerReset(){
+  state.timer.running = false;
+  state.timer.endAt = null;
+  state.timer.finishedAt = null;
+  state.timer.remainingMs = state.timer.durationMs;
+  save();
+  renderTimerUI();
+  toast({ title:"Temporizador", message:"Reiniciado", type:"info", timeout: 1200 });
+}
+
+function playBeep(vol=0.5){
+  try{
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const gain = ctx.createGain();
+    gain.gain.value = Math.max(0, Math.min(1, Number(vol) || 0));
+    gain.connect(ctx.destination);
+
+    const beepOnce = (t, freq)=>{
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      osc.start(t);
+      osc.stop(t + 0.14);
+    };
+
+    const t0 = ctx.currentTime + 0.02;
+    beepOnce(t0, 880);
+    beepOnce(t0 + 0.20, 880);
+    beepOnce(t0 + 0.40, 660);
+
+    setTimeout(()=>{ try{ ctx.close(); }catch{} }, 900);
+  }catch{}
+}
+
+function timerFinished(){
+  state.timer.running = false;
+  state.timer.endAt = null;
+  state.timer.remainingMs = 0;
+  state.timer.finishedAt = Date.now();
+  save();
+  renderTimerUI(true);
+
+  pushNotif({ title:"⏱ Temporizador", message:"¡Tiempo!", type:"ok" });
+  toast({ title:"⏱ Tiempo", message:"Temporizador finalizado", type:"ok" });
+
+  const vol = Number(state.timer.volume || 0);
+  if (vol > 0) playBeep(vol);
+
+  if ("Notification" in window && Notification.permission === "granted"){
+    try { new Notification("TRX Panel · Temporizador", { body: "¡Tiempo!", silent: vol === 0 }); } catch {}
+  }
+}
+
+function timerTick(){
+  if (!state.timer) return;
+  if (state.timer.running){
+    const now = Date.now();
+    const rem = Math.max(0, (state.timer.endAt || now) - now);
+    state.timer.remainingMs = rem;
+    if (rem <= 0) timerFinished();
+  }
+  renderTimerUI();
+}
+
+function renderTimerUI(force = false){
+  const digits = $("#timerDigits");
+  const ring = document.querySelector("#timer .timerRing");
+  const meta = $("#timerMeta");
+  const st = $("#timerState");
+  const hint = $("#timerHint");
+  const startBtn = $("#timerStart");
+  const pauseBtn = $("#timerPause");
+  const resetBtn = $("#timerReset");
+  const volSel = $("#timerVol");
+
+  if (!digits || !ring) return;
+
+  const dur = Math.max(1000, Number(state.timer.durationMs) || 1000);
+  const rem = Math.max(0, Number(state.timer.remainingMs) || 0);
+  digits.textContent = fmtTimer(rem);
+
+  const p = 1 - (rem / dur);
+  ring.style.setProperty("--timer-p", String(Math.max(0, Math.min(1, p))));
+
+  if (meta) meta.textContent = `Duración: ${fmtTimer(dur)}`;
+  if (st){
+    st.textContent = state.timer.running ? "En marcha" : (rem <= 0 ? "Finalizado" : "Listo");
+  }
+  if (hint){
+    hint.textContent = state.timer.running ? "Pulsa pausar o reiniciar" : (rem <= 0 ? "Reinicia o ajusta duración" : "Configura y pulsa iniciar");
+  }
+  if (startBtn) startBtn.disabled = state.timer.running;
+  if (pauseBtn) pauseBtn.disabled = !state.timer.running;
+  if (resetBtn) resetBtn.disabled = state.timer.running && rem > 0 ? false : false;
+
+  if (volSel && (force || !volSel.dataset.bound)){
+    volSel.value = String(state.timer.volume ?? 0.5);
+  }
+}
+
+function bindTimer(){
+  const minEl = $("#timerMin");
+  const secEl = $("#timerSec");
+  const volSel = $("#timerVol");
+  const startBtn = $("#timerStart");
+  const pauseBtn = $("#timerPause");
+  const resetBtn = $("#timerReset");
+
+  if (!minEl || !secEl || !startBtn || !pauseBtn || !resetBtn) return;
+
+  // Evita doble bind si se llama varias veces
+  if (startBtn.dataset.bound) return;
+  startBtn.dataset.bound = "1";
+  if (volSel) volSel.dataset.bound = "1";
+
+  const applyInputs = () => {
+    if (state.timer.running) return;
+    const ms = readTimerInputs();
+    if (ms != null) setTimerDuration(ms);
+  };
+
+  minEl.addEventListener("change", applyInputs);
+  secEl.addEventListener("change", applyInputs);
+  minEl.addEventListener("blur", applyInputs);
+  secEl.addEventListener("blur", applyInputs);
+
+  startBtn.addEventListener("click", timerStart);
+  pauseBtn.addEventListener("click", timerPause);
+  resetBtn.addEventListener("click", timerReset);
+
+  const p5 = $("#timerPreset5");
+  const p10 = $("#timerPreset10");
+  const p25 = $("#timerPreset25");
+  if (p5) p5.addEventListener("click", ()=>setTimerPreset(5));
+  if (p10) p10.addEventListener("click", ()=>setTimerPreset(10));
+  if (p25) p25.addEventListener("click", ()=>setTimerPreset(25));
+
+  if (volSel){
+    volSel.addEventListener("change", ()=>{
+      state.timer.volume = Math.max(0, Math.min(1, Number(volSel.value) || 0));
+      save();
+    });
+  }
+
+  // Inicializa inputs según estado
+  syncTimerInputsFromState();
+  renderTimerUI(true);
+}
+
+function initTimerLoop(){
+  if (timerTickHandle) return;
+  timerTickHandle = setInterval(timerTick, 120);
 }
 
 /* ===================== Tasks (schema + rendering) ===================== */
@@ -1317,12 +1585,14 @@ async function resetAll() {
   localStorage.removeItem(LS.notes);
   localStorage.removeItem(LS.activity);
   localStorage.removeItem(LS.notifs);
+  localStorage.removeItem(LS.timer);
 
   state.tasks = [];
   state.notes = [];
   state.activityDays = [];
   state.notifs = [];
   state.tagFilter = null;
+  state.timer = { durationMs: 25*1000, remainingMs: 25*1000, running:false, endAt:null, volume:0.5, finishedAt:null };
 
   save();
   renderAll();
@@ -1638,6 +1908,7 @@ function bindUx() {
 
   $("#btnClearTag").addEventListener("click", () => {
     state.tagFilter = null;
+  state.timer = { durationMs: 25*1000, remainingMs: 25*1000, running:false, endAt:null, volume:0.5, finishedAt:null };
     renderAll(false);
   });
 
@@ -1651,6 +1922,10 @@ function bindUx() {
     next.addEventListener("click", () => { state.calOffset = (state.calOffset||0) + 1; renderCalendar(); });
     today.addEventListener("click", () => { state.calOffset = 0; renderCalendar(); });
   }
+  // temporizador
+  bindTimer();
+
+
 
   // notes
   const wireNotesBar = (inputId, btnId) => {
@@ -1890,6 +2165,7 @@ function main() {
   initTheme();
   initDensity();
   initClock();
+  initTimerLoop();
 
   $("#viewSelect").value = state.view;
 

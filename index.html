@@ -216,6 +216,9 @@
                     <button class="tab" data-tab="calendar" role="tab" aria-selected="false">
             <span class="ic">📅</span><span>Calendario</span>
           </button>
+          <button class="tab" data-tab="timer" role="tab" aria-selected="false">
+            <span class="ic">⏱</span><span>Temporizador</span>
+          </button>
 <button class="tab" data-tab="notes" role="tab" aria-selected="false" data-requires-role="admin">
             <span class="ic">✎</span><span>Notas</span>
           </button>
@@ -431,6 +434,70 @@
           <div id="calendarGrid" class="calendar"></div>
         </div>
       </section>
+
+
+      <!-- TIMER -->
+      <section class="panel" id="timer" role="tabpanel">
+        <div class="card">
+          <div class="row spread">
+            <div>
+              <div class="h2">Temporizador</div>
+            </div>
+            <div class="row" style="gap:8px; flex-wrap:wrap; justify-content:flex-end">
+              <button class="btn ghost" id="timerPreset5" type="button">5 min</button>
+              <button class="btn ghost" id="timerPreset10" type="button">10 min</button>
+              <button class="btn ghost" id="timerPreset25" type="button">25 min</button>
+            </div>
+          </div>
+
+          <div class="timerLayout">
+            <div class="timerRing" aria-label="Cuenta atrás">
+              <svg class="timerSvg" viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="timerTrack" cx="60" cy="60" r="46" pathLength="100"></circle>
+                <circle class="timerProg" cx="60" cy="60" r="46" pathLength="100"></circle>
+              </svg>
+
+              <div class="timerCenter">
+                <div id="timerDigits" class="timerDigits">00:25</div>
+              </div>
+            </div>
+
+            <div class="timerControls">
+              <div class="row3">
+                <div class="field">
+                  <label class="lbl" for="timerMin">Min</label>
+                  <input id="timerMin" type="number" min="0" max="999" step="1" value="0" />
+                </div>
+                <div class="field">
+                  <label class="lbl" for="timerSec">Seg</label>
+                  <input id="timerSec" type="number" min="0" max="59" step="1" value="25" />
+                </div>
+                <div class="field">
+                  <label class="lbl" for="timerVol">Sonido</label>
+                  <select id="timerVol">
+                    <option value="0">Off</option>
+                    <option value="0.2">Bajo</option>
+                    <option value="0.5" selected>Medio</option>
+                    <option value="0.9">Alto</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
+                <button id="timerStart" class="btn primary" type="button">Iniciar</button>
+                <button id="timerPause" class="btn ghost" type="button">Pausar</button>
+                <button id="timerReset" class="btn danger" type="button">Reiniciar</button>
+              </div>
+
+              <div class="timerMeta">
+                <div class="muted" id="timerMeta">Duración: —</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
 
 <section class="panel" id="notes" role="tabpanel">
         <div class="card">

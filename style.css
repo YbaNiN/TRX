@@ -863,6 +863,92 @@ canvas{
 }
 
 
+/* ======= Temporizador ======= */
+.timerLayout{
+  display:grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap:16px;
+  align-items:stretch;
+  margin-top:14px;
+}
+@media (max-width: 900px){
+  .timerLayout{ grid-template-columns: 1fr; }
+}
+
+.timerRing{
+  position:relative;
+  min-height:340px;
+  border:1px solid var(--stroke);
+  border-radius:22px;
+  background: radial-gradient(120% 120% at 50% 35%, rgba(0,255,255,.08), rgba(255,255,255,.02) 55%, rgba(0,0,0,.08));
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+}
+
+.timerSvg{
+  width:min(360px, 78%);
+  height:auto;
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
+}
+
+.timerTrack{
+  fill:none;
+  stroke: rgba(120, 200, 255, .18);
+  stroke-width: 10;
+  stroke-linecap: butt;
+  stroke-dasharray: 1 1;
+}
+.timerProg{
+  fill:none;
+  stroke: rgba(0, 255, 255, .95);
+  stroke-width: 10;
+  stroke-linecap: butt;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: calc(100 * (1 - var(--timer-p, 0)));
+  transition: stroke-dashoffset .12s linear;
+}
+
+.timerCenter{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  text-align:center;
+  padding:14px;
+}
+
+.timerDigits{
+  font-size: clamp(46px, 6vw, 74px);
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: rgba(0,255,255,.95);
+  text-shadow:
+    0 0 12px rgba(0,255,255,.35),
+    0 0 26px rgba(0,255,255,.22);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.timerControls{
+  border:1px solid var(--stroke);
+  border-radius:22px;
+  padding:14px;
+  background: rgba(255,255,255,.02);
+}
+
+.timerControls input[type="number"]{
+  width:100%;
+}
+
+.timerMeta{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid var(--stroke);
+}
+
+
 .installCard{margin-bottom:12px}
 .installRow{display:flex;align-items:center;justify-content:space-between;gap:14px}
 .iosHint{margin-top:8px;font-size:12px;opacity:.9}
