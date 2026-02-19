@@ -913,13 +913,18 @@ canvas{
 .timerCenter{
   position:absolute;
   inset:0;
-  display:grid;
-  place-items:center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
   text-align:center;
+  gap:8px;
   padding:14px;
 }
 
 .timerDigits{
+  display:block;
+  text-align:center;
   font-size: clamp(46px, 6vw, 74px);
   font-weight: 900;
   letter-spacing: 2px;
