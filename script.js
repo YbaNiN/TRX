@@ -2095,7 +2095,9 @@ async function triggerInstall(){
 function bindInstallButtons(){
   // Rebind safely (clone nodes to remove previous handlers)
   const rebind = (id, handler) => {
-    const el = $(id);
+    // NOTE: throughout the app we use querySelector via $, but here we receive raw element IDs.
+    // Using document.getElementById avoids missing the leading '#'.
+    const el = document.getElementById(id);
     if (!el || !el.parentNode) return;
     const clone = el.cloneNode(true);
     el.parentNode.replaceChild(clone, el);
