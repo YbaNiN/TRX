@@ -437,67 +437,117 @@
 
 
       <!-- TIMER -->
-      <section class="panel" id="timer" role="tabpanel">
-        <div class="card">
-          <div class="row spread">
-            <div>
-              <div class="h2">Temporizador</div>
+<section class="panel" id="timer" role="tabpanel" data-mode="timer">
+  <div class="card">
+    <div class="row spread">
+      <div>
+        <div class="h2">Temporizador</div>
+        <div class="seg" role="tablist" aria-label="Modo temporizador">
+          <button id="timerModeTimer" class="segBtn active" type="button" aria-selected="true">Normal</button>
+          <button id="timerModePomodoro" class="segBtn" type="button" aria-selected="false">Pomodoro</button>
+        </div>
+      </div>
+
+      <div class="row timerOnly" style="gap:8px; flex-wrap:wrap; justify-content:flex-end">
+        <button class="btn ghost" id="timerPreset5" type="button">5 min</button>
+        <button class="btn ghost" id="timerPreset10" type="button">10 min</button>
+        <button class="btn ghost" id="timerPreset25" type="button">25 min</button>
+      </div>
+    </div>
+
+    <div class="timerLayout">
+      <div class="timerRing" aria-label="Cuenta atrás">
+        <svg class="timerSvg" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="timerTrack" cx="60" cy="60" r="46" pathLength="100"></circle>
+          <circle class="timerProg" cx="60" cy="60" r="46" pathLength="100"></circle>
+        </svg>
+
+        <div class="timerCenter">
+          <div id="timerDigits" class="timerDigits">00:25</div>
+          <div id="pomoPhase" class="timerPhase pomoOnly">Trabajo</div>
+          <div id="pomoCount" class="timerPhaseSub pomoOnly">0 pomodoros</div>
+        </div>
+      </div>
+
+      <div class="timerControls">
+        <div class="row3 timerOnly">
+          <div class="field">
+            <label class="lbl" for="timerMin">Min</label>
+            <input id="timerMin" type="number" min="0" max="999" step="1" value="0" />
+          </div>
+          <div class="field">
+            <label class="lbl" for="timerSec">Seg</label>
+            <input id="timerSec" type="number" min="0" max="59" step="1" value="25" />
+          </div>
+          <div class="field">
+            <label class="lbl" for="timerVol">Sonido</label>
+            <select id="timerVol">
+              <option value="0">Off</option>
+              <option value="0.2">Bajo</option>
+              <option value="0.5" selected>Medio</option>
+              <option value="0.9">Alto</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pomoOnly">
+          <div class="row spread" style="margin-bottom:10px; align-items:flex-end; flex-wrap:wrap; gap:10px">
+            <div class="row" style="gap:8px; flex-wrap:wrap">
+              <button id="pomoPhaseWork" class="btn ghost sm" type="button">Trabajo</button>
+              <button id="pomoPhaseShort" class="btn ghost sm" type="button">Descanso</button>
+              <button id="pomoPhaseLong" class="btn ghost sm" type="button">Largo</button>
             </div>
-            <div class="row" style="gap:8px; flex-wrap:wrap; justify-content:flex-end">
-              <button class="btn ghost" id="timerPreset5" type="button">5 min</button>
-              <button class="btn ghost" id="timerPreset10" type="button">10 min</button>
-              <button class="btn ghost" id="timerPreset25" type="button">25 min</button>
+
+            <div class="row" style="gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end">
+              <label class="checkRow">
+                <input id="pomoAuto" type="checkbox" checked />
+                <span>Auto-cambiar</span>
+              </label>
+              <div class="field" style="min-width:140px">
+                <label class="lbl" for="timerVolPomo">Sonido</label>
+                <select id="timerVolPomo">
+                  <option value="0">Off</option>
+                  <option value="0.2">Bajo</option>
+                  <option value="0.5" selected>Medio</option>
+                  <option value="0.9">Alto</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div class="timerLayout">
-            <div class="timerRing" aria-label="Cuenta atrás">
-              <svg class="timerSvg" viewBox="0 0 120 120" aria-hidden="true">
-                <circle class="timerTrack" cx="60" cy="60" r="46" pathLength="100"></circle>
-                <circle class="timerProg" cx="60" cy="60" r="46" pathLength="100"></circle>
-              </svg>
-
-              <div class="timerCenter">
-                <div id="timerDigits" class="timerDigits">00:25</div>
-              </div>
+          <div class="row4">
+            <div class="field">
+              <label class="lbl" for="pomoWork">Trabajo (min)</label>
+              <input id="pomoWork" type="number" min="1" max="180" step="1" value="25" />
             </div>
-
-            <div class="timerControls">
-              <div class="row3">
-                <div class="field">
-                  <label class="lbl" for="timerMin">Min</label>
-                  <input id="timerMin" type="number" min="0" max="999" step="1" value="0" />
-                </div>
-                <div class="field">
-                  <label class="lbl" for="timerSec">Seg</label>
-                  <input id="timerSec" type="number" min="0" max="59" step="1" value="25" />
-                </div>
-                <div class="field">
-                  <label class="lbl" for="timerVol">Sonido</label>
-                  <select id="timerVol">
-                    <option value="0">Off</option>
-                    <option value="0.2">Bajo</option>
-                    <option value="0.5" selected>Medio</option>
-                    <option value="0.9">Alto</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
-                <button id="timerStart" class="btn primary" type="button">Iniciar</button>
-                <button id="timerPause" class="btn ghost" type="button">Pausar</button>
-                <button id="timerReset" class="btn danger" type="button">Reiniciar</button>
-              </div>
-
-              <div class="timerMeta">
-                <div class="muted" id="timerMeta">Duración: —</div>
-              </div>
+            <div class="field">
+              <label class="lbl" for="pomoShort">Descanso (min)</label>
+              <input id="pomoShort" type="number" min="1" max="60" step="1" value="5" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="pomoLong">Largo (min)</label>
+              <input id="pomoLong" type="number" min="1" max="120" step="1" value="15" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="pomoEvery">Largo cada</label>
+              <input id="pomoEvery" type="number" min="2" max="10" step="1" value="4" />
             </div>
           </div>
         </div>
-      </section>
 
+        <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
+          <button id="timerStart" class="btn primary" type="button">Iniciar</button>
+          <button id="timerPause" class="btn ghost" type="button">Pausar</button>
+          <button id="timerReset" class="btn danger" type="button">Reiniciar</button>
+        </div>
 
+        <div class="timerMeta">
+          <div class="muted" id="timerMeta">Duración: —</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <section class="panel" id="notes" role="tabpanel">
         <div class="card">

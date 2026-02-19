@@ -35,13 +35,28 @@ const state = {
   tagFilter: null,
   view: "list", // list | kanban
   timer: {
-    durationMs: 25 * 1000,
-    remainingMs: 25 * 1000,
-    running: false,
-    endAt: null,
-    volume: 0.5,
-    finishedAt: null,
+  mode: "timer", // timer | pomodoro
+  durationMs: 25 * 1000,
+  remainingMs: 25 * 1000,
+  running: false,
+  endAt: null,
+  volume: 0.5,
+  finishedAt: null,
+
+  // Pomodoro
+  pomodoro: {
+    workMin: 25,
+    shortMin: 5,
+    longMin: 15,
+    longEvery: 4,
+    autoAdvance: true,
+    phase: "work", // work | short | long
+    completed: 0,  // trabajos completados
   },
+
+  // Para recordar el último temporizador "normal"
+  lastTimerDurationMs: 25 * 1000,
+},
 };
 
 function uid() {
@@ -161,15 +176,41 @@ function load() {
   try { state.dueNotifs = JSON.parse(localStorage.getItem(LS.dueNotifs) || "{}"); } catch { state.dueNotifs = {}; }
 
   // Timer
-  try { state.timer = JSON.parse(localStorage.getItem(LS.timer) || "null") || state.timer; } catch {}
-  // Normaliza timer
-  if (!state.timer || typeof state.timer !== "object") state.timer = { durationMs: 25*1000, remainingMs: 25*1000, running:false, endAt:null, volume:0.5, finishedAt:null };
-  state.timer.durationMs = Math.max(1000, Number(state.timer.durationMs) || 25*1000);
-  state.timer.remainingMs = Math.min(state.timer.durationMs, Math.max(0, Number(state.timer.remainingMs) || state.timer.durationMs));
-  state.timer.running = Boolean(state.timer.running);
-  state.timer.endAt = state.timer.endAt ? Number(state.timer.endAt) : null;
-  state.timer.volume = Math.max(0, Math.min(1, Number(state.timer.volume) || 0));
-  state.timer.finishedAt = state.timer.finishedAt ? Number(state.timer.finishedAt) : null;
+try { state.timer = JSON.parse(localStorage.getItem(LS.timer) || "null") || state.timer; } catch {}
+// Normaliza timer
+const defTimer = {
+  mode: "timer",
+  durationMs: 25*1000,
+  remainingMs: 25*1000,
+  running:false,
+  endAt:null,
+  volume:0.5,
+  finishedAt:null,
+  pomodoro: { workMin:25, shortMin:5, longMin:15, longEvery:4, autoAdvance:true, phase:"work", completed:0 },
+  lastTimerDurationMs: 25*1000,
+};
+if (!state.timer || typeof state.timer !== "object") state.timer = defTimer;
+if (!state.timer.pomodoro || typeof state.timer.pomodoro !== "object") state.timer.pomodoro = defTimer.pomodoro;
+
+state.timer.mode = (state.timer.mode === "pomodoro") ? "pomodoro" : "timer";
+state.timer.durationMs = Math.max(1000, Number(state.timer.durationMs) || defTimer.durationMs);
+state.timer.remainingMs = Math.min(state.timer.durationMs, Math.max(0, Number(state.timer.remainingMs) || state.timer.durationMs));
+state.timer.running = Boolean(state.timer.running);
+state.timer.endAt = state.timer.endAt ? Number(state.timer.endAt) : null;
+state.timer.volume = Math.max(0, Math.min(1, Number(state.timer.volume) ?? defTimer.volume));
+state.timer.finishedAt = state.timer.finishedAt ? Number(state.timer.finishedAt) : null;
+
+state.timer.lastTimerDurationMs = Math.max(1000, Number(state.timer.lastTimerDurationMs) || state.timer.durationMs);
+
+// Pomodoro settings
+const p = state.timer.pomodoro;
+p.workMin = Math.max(1, Math.min(180, Number(p.workMin) || defTimer.pomodoro.workMin));
+p.shortMin = Math.max(1, Math.min(60, Number(p.shortMin) || defTimer.pomodoro.shortMin));
+p.longMin = Math.max(1, Math.min(120, Number(p.longMin) || defTimer.pomodoro.longMin));
+p.longEvery = Math.max(2, Math.min(10, Number(p.longEvery) || defTimer.pomodoro.longEvery));
+p.autoAdvance = Boolean(p.autoAdvance);
+p.phase = (p.phase === "short" || p.phase === "long") ? p.phase : "work";
+p.completed = Math.max(0, Number(p.completed) || 0);
 
   const v = localStorage.getItem("trx_view_v1");
   if (v) state.view = v;
@@ -635,10 +676,173 @@ function syncTimerInputsFromState(){
 }
 
 function setTimerPreset(minutes){
-  const ms = Math.max(1000, Number(minutes) * 60 * 1000);
+  const mins = Math.max(1, Number(minutes) || 1);
+
+  if (state.timer.mode === "pomodoro"){
+    state.timer.pomodoro.workMin = mins;
+    state.timer.pomodoro.phase = "work";
+    const dur = mins * 60 * 1000;
+    state.timer.durationMs = dur;
+    if (!state.timer.running){
+      state.timer.remainingMs = dur;
+      state.timer.endAt = null;
+    }
+    save();
+    syncPomodoroInputsFromState();
+    renderTimerUI(true);
+    toast({ title:"Pomodoro", message:`Trabajo: ${mins} min`, type:"info", timeout: 1200 });
+    return;
+  }
+
+  const ms = Math.max(1000, mins * 60 * 1000);
   setTimerDuration(ms);
-  toast({ title:"Temporizador", message:`Preset: ${minutes} min`, type:"info", timeout: 1200 });
+  toast({ title:"Temporizador", message:`Preset: ${mins} min`, type:"info", timeout: 1200 });
 }
+
+function pomoPhaseLabel(phase){
+  if (phase === "short") return "Descanso";
+  if (phase === "long") return "Descanso largo";
+  return "Trabajo";
+}
+function pomoPhaseDurationMs(phase){
+  const p = state.timer.pomodoro;
+  const min = phase === "short" ? p.shortMin : phase === "long" ? p.longMin : p.workMin;
+  return Math.max(1000, Number(min) * 60 * 1000);
+}
+function setTimerMode(mode){
+  const m = (mode === "pomodoro") ? "pomodoro" : "timer";
+  if (state.timer.mode === m) return;
+
+  // pausa para evitar inconsistencias
+  if (state.timer.running) timerPause();
+
+  if (m === "pomodoro"){
+    // guarda el último temporizador normal
+    state.timer.lastTimerDurationMs = state.timer.durationMs;
+    // carga la fase actual
+    const dur = pomoPhaseDurationMs(state.timer.pomodoro.phase);
+    state.timer.durationMs = dur;
+    state.timer.remainingMs = dur;
+    state.timer.endAt = null;
+  } else {
+    // vuelve al último temporizador normal
+    const dur = Math.max(1000, Number(state.timer.lastTimerDurationMs) || 25*1000);
+    state.timer.durationMs = dur;
+    state.timer.remainingMs = dur;
+    state.timer.endAt = null;
+  }
+
+  state.timer.mode = m;
+  save();
+  syncTimerInputsFromState();
+  syncPomodoroInputsFromState();
+  renderTimerUI(true);
+}
+
+function setPomodoroPhase(phase, { keepRunning=false } = {}){
+  const p = state.timer.pomodoro;
+  const ph = (phase === "short" || phase === "long") ? phase : "work";
+  const wasRunning = state.timer.running;
+  if (wasRunning) timerPause();
+
+  p.phase = ph;
+  const dur = pomoPhaseDurationMs(ph);
+  state.timer.durationMs = dur;
+  state.timer.remainingMs = dur;
+  state.timer.endAt = null;
+  state.timer.finishedAt = null;
+
+  save();
+  renderTimerUI(true);
+
+  if (keepRunning && wasRunning){
+    timerStart();
+  }
+}
+
+function syncPomodoroInputsFromState(){
+  const p = state.timer.pomodoro;
+  const elWork = $("#pomoWork");
+  const elShort = $("#pomoShort");
+  const elLong = $("#pomoLong");
+  const elEvery = $("#pomoEvery");
+  const elAuto = $("#pomoAuto");
+  const volP = $("#timerVolPomo");
+  const volN = $("#timerVol");
+
+  if (elWork) elWork.value = String(p.workMin);
+  if (elShort) elShort.value = String(p.shortMin);
+  if (elLong) elLong.value = String(p.longMin);
+  if (elEvery) elEvery.value = String(p.longEvery);
+  if (elAuto) elAuto.checked = !!p.autoAdvance;
+
+  // sincroniza selects de sonido
+  if (volP) volP.value = String(state.timer.volume ?? 0.5);
+  if (volN) volN.value = String(state.timer.volume ?? 0.5);
+
+  const sec = $("#timer");
+  if (sec) sec.dataset.mode = state.timer.mode;
+  const btnT = $("#timerModeTimer");
+  const btnP = $("#timerModePomodoro");
+  if (btnT) btnT.classList.toggle("active", state.timer.mode === "timer");
+  if (btnP) btnP.classList.toggle("active", state.timer.mode === "pomodoro");
+  if (btnT) btnT.setAttribute("aria-selected", state.timer.mode === "timer" ? "true" : "false");
+  if (btnP) btnP.setAttribute("aria-selected", state.timer.mode === "pomodoro" ? "true" : "false");
+}
+
+function applyPomodoroSettings(){
+  const p = state.timer.pomodoro;
+  const elWork = $("#pomoWork");
+  const elShort = $("#pomoShort");
+  const elLong = $("#pomoLong");
+  const elEvery = $("#pomoEvery");
+  const elAuto = $("#pomoAuto");
+
+  if (elWork) p.workMin = Math.max(1, Math.min(180, Number(elWork.value) || p.workMin));
+  if (elShort) p.shortMin = Math.max(1, Math.min(60, Number(elShort.value) || p.shortMin));
+  if (elLong) p.longMin = Math.max(1, Math.min(120, Number(elLong.value) || p.longMin));
+  if (elEvery) p.longEvery = Math.max(2, Math.min(10, Number(elEvery.value) || p.longEvery));
+  if (elAuto) p.autoAdvance = !!elAuto.checked;
+
+  save();
+
+  // si estamos en pomodoro y no está corriendo, aplica la duración de la fase actual
+  if (state.timer.mode === "pomodoro" && !state.timer.running){
+    const dur = pomoPhaseDurationMs(p.phase);
+    state.timer.durationMs = dur;
+    state.timer.remainingMs = dur;
+    state.timer.endAt = null;
+    save();
+  }
+  renderTimerUI(true);
+}
+
+function pomodoroAdvance(){
+  const p = state.timer.pomodoro;
+
+  if (p.phase === "work"){
+    p.completed = (Number(p.completed) || 0) + 1;
+    const useLong = (p.completed % p.longEvery) === 0;
+    p.phase = useLong ? "long" : "short";
+  } else {
+    p.phase = "work";
+  }
+
+  const dur = pomoPhaseDurationMs(p.phase);
+  state.timer.durationMs = dur;
+  state.timer.remainingMs = dur;
+  state.timer.endAt = null;
+  state.timer.finishedAt = null;
+
+  save();
+  renderTimerUI(true);
+
+  if (p.autoAdvance){
+    timerStart();
+  }
+}
+
+
 
 function timerStart(){
   // si estaba a 0, vuelve a cargar duración
@@ -664,9 +868,19 @@ function timerReset(){
   state.timer.running = false;
   state.timer.endAt = null;
   state.timer.finishedAt = null;
-  state.timer.remainingMs = state.timer.durationMs;
+
+  if (state.timer.mode === "pomodoro"){
+    state.timer.pomodoro.phase = "work";
+    state.timer.pomodoro.completed = 0;
+    const dur = pomoPhaseDurationMs("work");
+    state.timer.durationMs = dur;
+    state.timer.remainingMs = dur;
+  } else {
+    state.timer.remainingMs = state.timer.durationMs;
+  }
+
   save();
-  renderTimerUI();
+  renderTimerUI(true);
   toast({ title:"Temporizador", message:"Reiniciado", type:"info", timeout: 1200 });
 }
 
@@ -705,14 +919,28 @@ function timerFinished(){
   save();
   renderTimerUI(true);
 
-  pushNotif({ title:"⏱ Temporizador", message:"¡Tiempo!", type:"ok" });
-  toast({ title:"⏱ Tiempo", message:"Temporizador finalizado", type:"ok" });
+  const isPomo = state.timer.mode === "pomodoro";
+  const p = state.timer.pomodoro;
+
+  const title = isPomo ? "🍅 Pomodoro" : "⏱ Temporizador";
+  const phaseTxt = isPomo ? pomoPhaseLabel(p.phase) : "";
+  const msg = isPomo ? `Fin: ${phaseTxt}` : "¡Tiempo!";
+
+  pushNotif({ title, message: msg, type:"ok" });
+  toast({ title, message: isPomo ? msg : "Temporizador finalizado", type:"ok" });
 
   const vol = Number(state.timer.volume || 0);
   if (vol > 0) playBeep(vol);
 
   if ("Notification" in window && Notification.permission === "granted"){
-    try { new Notification("TRX Panel · Temporizador", { body: "¡Tiempo!", silent: vol === 0 }); } catch {}
+    try {
+      new Notification(`TRX Panel · ${isPomo ? "Pomodoro" : "Temporizador"}`, { body: msg, silent: vol === 0 });
+    } catch {}
+  }
+
+  // Pomodoro: avanza a la siguiente fase (si auto está activado)
+  if (isPomo){
+    pomodoroAdvance();
   }
 }
 
@@ -728,17 +956,24 @@ function timerTick(){
 }
 
 function renderTimerUI(force = false){
+  const sec = $("#timer");
   const digits = $("#timerDigits");
   const ring = document.querySelector("#timer .timerRing");
   const meta = $("#timerMeta");
-  const st = $("#timerState");
-  const hint = $("#timerHint");
   const startBtn = $("#timerStart");
   const pauseBtn = $("#timerPause");
-  const resetBtn = $("#timerReset");
+
   const volSel = $("#timerVol");
+  const volPomo = $("#timerVolPomo");
+
+  const phaseEl = $("#pomoPhase");
+  const countEl = $("#pomoCount");
 
   if (!digits || !ring) return;
+
+  // modo (atributo + botones)
+  if (sec) sec.dataset.mode = state.timer.mode;
+  syncPomodoroInputsFromState();
 
   const dur = Math.max(1000, Number(state.timer.durationMs) || 1000);
   const rem = Math.max(0, Number(state.timer.remainingMs) || 0);
@@ -747,19 +982,26 @@ function renderTimerUI(force = false){
   const p = 1 - (rem / dur);
   ring.style.setProperty("--timer-p", String(Math.max(0, Math.min(1, p))));
 
-  if (meta) meta.textContent = `Duración: ${fmtTimer(dur)}`;
-  if (st){
-    st.textContent = state.timer.running ? "En marcha" : (rem <= 0 ? "Finalizado" : "Listo");
+  if (state.timer.mode === "pomodoro"){
+    const ph = state.timer.pomodoro.phase;
+    const done = Number(state.timer.pomodoro.completed) || 0;
+    if (phaseEl) phaseEl.textContent = pomoPhaseLabel(ph);
+    if (countEl) countEl.textContent = `${done} pomodoro${done === 1 ? "" : "s"}`;
+    if (meta) meta.textContent = `${pomoPhaseLabel(ph)} · ${fmtTimer(dur)} · Total: ${done}`;
+  } else {
+    if (phaseEl) phaseEl.textContent = "";
+    if (countEl) countEl.textContent = "";
+    if (meta) meta.textContent = `Duración: ${fmtTimer(dur)}`;
   }
-  if (hint){
-    hint.textContent = state.timer.running ? "Pulsa pausar o reiniciar" : (rem <= 0 ? "Reinicia o ajusta duración" : "Configura y pulsa iniciar");
-  }
+
   if (startBtn) startBtn.disabled = state.timer.running;
   if (pauseBtn) pauseBtn.disabled = !state.timer.running;
-  if (resetBtn) resetBtn.disabled = state.timer.running && rem > 0 ? false : false;
 
   if (volSel && (force || !volSel.dataset.bound)){
     volSel.value = String(state.timer.volume ?? 0.5);
+  }
+  if (volPomo && (force || !volPomo.dataset.bound)){
+    volPomo.value = String(state.timer.volume ?? 0.5);
   }
 }
 
@@ -767,27 +1009,33 @@ function bindTimer(){
   const minEl = $("#timerMin");
   const secEl = $("#timerSec");
   const volSel = $("#timerVol");
+  const volPomo = $("#timerVolPomo");
+
   const startBtn = $("#timerStart");
   const pauseBtn = $("#timerPause");
   const resetBtn = $("#timerReset");
 
-  if (!minEl || !secEl || !startBtn || !pauseBtn || !resetBtn) return;
+  if (!startBtn || !pauseBtn || !resetBtn) return;
 
   // Evita doble bind si se llama varias veces
   if (startBtn.dataset.bound) return;
   startBtn.dataset.bound = "1";
   if (volSel) volSel.dataset.bound = "1";
+  if (volPomo) volPomo.dataset.bound = "1";
 
   const applyInputs = () => {
     if (state.timer.running) return;
+    if (state.timer.mode !== "timer") return;
     const ms = readTimerInputs();
     if (ms != null) setTimerDuration(ms);
   };
 
-  minEl.addEventListener("change", applyInputs);
-  secEl.addEventListener("change", applyInputs);
-  minEl.addEventListener("blur", applyInputs);
-  secEl.addEventListener("blur", applyInputs);
+  if (minEl && secEl){
+    minEl.addEventListener("change", applyInputs);
+    secEl.addEventListener("change", applyInputs);
+    minEl.addEventListener("blur", applyInputs);
+    secEl.addEventListener("blur", applyInputs);
+  }
 
   startBtn.addEventListener("click", timerStart);
   pauseBtn.addEventListener("click", timerPause);
@@ -800,15 +1048,44 @@ function bindTimer(){
   if (p10) p10.addEventListener("click", ()=>setTimerPreset(10));
   if (p25) p25.addEventListener("click", ()=>setTimerPreset(25));
 
-  if (volSel){
-    volSel.addEventListener("change", ()=>{
-      state.timer.volume = Math.max(0, Math.min(1, Number(volSel.value) || 0));
+  const bModeTimer = $("#timerModeTimer");
+  const bModePomo = $("#timerModePomodoro");
+  if (bModeTimer) bModeTimer.addEventListener("click", ()=>setTimerMode("timer"));
+  if (bModePomo) bModePomo.addEventListener("click", ()=>setTimerMode("pomodoro"));
+
+  const bWork = $("#pomoPhaseWork");
+  const bShort = $("#pomoPhaseShort");
+  const bLong = $("#pomoPhaseLong");
+  if (bWork) bWork.addEventListener("click", ()=>{ if (state.timer.mode !== "pomodoro") setTimerMode("pomodoro"); setPomodoroPhase("work"); });
+  if (bShort) bShort.addEventListener("click", ()=>{ if (state.timer.mode !== "pomodoro") setTimerMode("pomodoro"); setPomodoroPhase("short"); });
+  if (bLong) bLong.addEventListener("click", ()=>{ if (state.timer.mode !== "pomodoro") setTimerMode("pomodoro"); setPomodoroPhase("long"); });
+
+  const pWork = $("#pomoWork");
+  const pShort = $("#pomoShort");
+  const pLong = $("#pomoLong");
+  const pEvery = $("#pomoEvery");
+  const pAuto = $("#pomoAuto");
+  [pWork, pShort, pLong, pEvery].forEach(el=>{
+    if (!el) return;
+    el.addEventListener("change", applyPomodoroSettings);
+    el.addEventListener("blur", applyPomodoroSettings);
+  });
+  if (pAuto) pAuto.addEventListener("change", applyPomodoroSettings);
+
+  const bindVolChange = (sel)=>{
+    if (!sel) return;
+    sel.addEventListener("change", ()=>{
+      state.timer.volume = Math.max(0, Math.min(1, Number(sel.value) || 0));
       save();
+      renderTimerUI(true);
     });
-  }
+  };
+  bindVolChange(volSel);
+  bindVolChange(volPomo);
 
   // Inicializa inputs según estado
   syncTimerInputsFromState();
+  syncPomodoroInputsFromState();
   renderTimerUI(true);
 }
 
@@ -1592,7 +1869,6 @@ async function resetAll() {
   state.activityDays = [];
   state.notifs = [];
   state.tagFilter = null;
-  state.timer = { durationMs: 25*1000, remainingMs: 25*1000, running:false, endAt:null, volume:0.5, finishedAt:null };
 
   save();
   renderAll();
@@ -1908,7 +2184,6 @@ function bindUx() {
 
   $("#btnClearTag").addEventListener("click", () => {
     state.tagFilter = null;
-  state.timer = { durationMs: 25*1000, remainingMs: 25*1000, running:false, endAt:null, volume:0.5, finishedAt:null };
     renderAll(false);
   });
 
