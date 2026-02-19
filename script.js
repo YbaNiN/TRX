@@ -619,6 +619,8 @@ function switchTab(id) {
 
 /* ===================== Timer ===================== */
 let timerTickHandle = null;
+// Evita pisar inputs mientras el usuario escribe (p.ej. ajustes Pomodoro)
+let _lastTimerUiMode = null;
 
 function clampTimerParts(min, sec){
   const m = Math.max(0, Math.min(999, Number(min) || 0));
@@ -770,10 +772,12 @@ function syncPomodoroInputsFromState(){
   const volP = $("#timerVolPomo");
   const volN = $("#timerVol");
 
-  if (elWork) elWork.value = String(p.workMin);
-  if (elShort) elShort.value = String(p.shortMin);
-  if (elLong) elLong.value = String(p.longMin);
-  if (elEvery) elEvery.value = String(p.longEvery);
+  // No sobreescribas el valor si el usuario está editando ese input
+  const ae = document.activeElement;
+  if (elWork && ae !== elWork) elWork.value = String(p.workMin);
+  if (elShort && ae !== elShort) elShort.value = String(p.shortMin);
+  if (elLong && ae !== elLong) elLong.value = String(p.longMin);
+  if (elEvery && ae !== elEvery) elEvery.value = String(p.longEvery);
   if (elAuto) elAuto.checked = !!p.autoAdvance;
 
   // sincroniza selects de sonido
@@ -973,7 +977,13 @@ function renderTimerUI(force = false){
 
   // modo (atributo + botones)
   if (sec) sec.dataset.mode = state.timer.mode;
-  syncPomodoroInputsFromState();
+  // Solo sincroniza inputs cuando cambie el modo o cuando lo pidamos explícitamente.
+  // Si no, al hacer tick pisaría el valor mientras el usuario escribe.
+  if (force || _lastTimerUiMode !== state.timer.mode){
+    syncTimerInputsFromState();
+    syncPomodoroInputsFromState();
+    _lastTimerUiMode = state.timer.mode;
+  }
 
   const dur = Math.max(1000, Number(state.timer.durationMs) || 1000);
   const rem = Math.max(0, Number(state.timer.remainingMs) || 0);
