@@ -2491,6 +2491,9 @@ function hideInstallUI(){
 function dismissInstallUI(){
   setInstallState({ dismissedAt: new Date().toISOString() });
   hideInstallUI();
+  // Extra safety: close help sheet too if it was open
+  const sheet = $("#installHelp");
+  if (sheet) sheet.hidden = true;
 }
 
 function openInstallSheet(){
@@ -2533,19 +2536,35 @@ async function triggerInstall(){
 function bindInstallButtons(){
   // Rebind safely (clone nodes to remove previous handlers)
   const rebind = (id, handler) => {
-    // NOTE: throughout the app we use querySelector via $, but here we receive raw element IDs.
-    // Using document.getElementById avoids missing the leading '#'.
     const el = document.getElementById(id);
     if (!el || !el.parentNode) return;
     const clone = el.cloneNode(true);
     el.parentNode.replaceChild(clone, el);
-    clone.addEventListener("click", handler);
+    clone.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handler(e);
+    });
   };
 
   rebind("installFab", triggerInstall);
   rebind("btnInstallApp", triggerInstall);
   rebind("btnInstallHelp", () => openInstallSheet());
   rebind("btnInstallClose", () => dismissInstallUI());
+
+  // Fallback delegated listener (por si algún render reemplaza nodos más adelante)
+  if (!document.body.dataset.installDelegatedBound){
+    document.body.dataset.installDelegatedBound = "1";
+    document.body.addEventListener("click", (e) => {
+      const closeBtn = e.target.closest("#btnInstallClose");
+      if (closeBtn){
+        e.preventDefault();
+        e.stopPropagation();
+        dismissInstallUI();
+        return;
+      }
+    });
+  }
 }
 
 function initInstallUX(){
