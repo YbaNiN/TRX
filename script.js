@@ -2458,8 +2458,8 @@ function canShowInstallUI(){
 }
 
 function showInstallUI({ canInstall, showHelp }){
-  const banner = $("#installBanner");
-  const fab = $("#installFab");
+  const banner = document.getElementById("installBanner");
+  const fab = document.getElementById("installFab");
 
   if (!canShowInstallUI()) {
     if (banner) banner.hidden = true;
@@ -2484,8 +2484,10 @@ function showInstallUI({ canInstall, showHelp }){
 }
 
 function hideInstallUI(){
-  $("#installBanner") && ($("#installBanner").hidden = true);
-  $("#installFab") && ($("#installFab").hidden = true);
+  const b = document.getElementById("installBanner");
+  const f = document.getElementById("installFab");
+  if (b){ b.hidden = true; b.style.display = "none"; }
+  if (f){ f.hidden = true; f.style.display = "none"; }
 }
 
 function dismissInstallUI(){
@@ -2570,6 +2572,37 @@ function bindInstallButtons(){
 function initInstallUX(){
   // Bind buttons once
   bindInstallButtons();
+
+  // Global delegated handlers to ensure close works even if nodes are re-rendered
+  if (!document.body.dataset.installCloseBound){
+    document.body.dataset.installCloseBound = "1";
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      if (t && t.closest){
+        if (t.closest("#btnInstallClose")){
+          e.preventDefault(); e.stopPropagation();
+          dismissInstallUI();
+          return;
+        }
+        if (t.closest("#btnSheetClose") || t.closest("#btnSheetOk") || t.closest("#installHelp .sheetBackdrop")){
+          e.preventDefault(); e.stopPropagation();
+          const sheet = document.getElementById("installHelp");
+          if (sheet) sheet.hidden = true;
+          return;
+        }
+      }
+    }, true);
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape"){
+        const sheet = document.getElementById("installHelp");
+        if (sheet && !sheet.hidden){
+          sheet.hidden = true;
+          e.preventDefault();
+        }
+      }
+    });
+  }
 
   // If already installed, hide
   if (isStandalone()) { hideInstallUI(); return; }
