@@ -54,6 +54,9 @@ const state = {
     completed: 0,  // trabajos completados
   },
 
+  // Configuraciones guardadas (máx 10)
+  pomodoroPresets: [],
+
   // Para recordar el último temporizador "normal"
   lastTimerDurationMs: 25 * 1000,
 },
@@ -187,10 +190,12 @@ const defTimer = {
   volume:0.5,
   finishedAt:null,
   pomodoro: { workMin:25, shortMin:5, longMin:15, longEvery:4, autoAdvance:true, phase:"work", completed:0 },
+  pomodoroPresets: [],
   lastTimerDurationMs: 25*1000,
 };
 if (!state.timer || typeof state.timer !== "object") state.timer = defTimer;
 if (!state.timer.pomodoro || typeof state.timer.pomodoro !== "object") state.timer.pomodoro = defTimer.pomodoro;
+if (!Array.isArray(state.timer.pomodoroPresets)) state.timer.pomodoroPresets = [];
 
 state.timer.mode = (state.timer.mode === "pomodoro") ? "pomodoro" : "timer";
 state.timer.durationMs = Math.max(1000, Number(state.timer.durationMs) || defTimer.durationMs);
@@ -211,6 +216,19 @@ p.longEvery = Math.max(2, Math.min(10, Number(p.longEvery) || defTimer.pomodoro.
 p.autoAdvance = Boolean(p.autoAdvance);
 p.phase = (p.phase === "short" || p.phase === "long") ? p.phase : "work";
 p.completed = Math.max(0, Number(p.completed) || 0);
+
+// Pomodoro presets
+state.timer.pomodoroPresets = (state.timer.pomodoroPresets || [])
+  .filter(x => x && typeof x === "object")
+  .map(x => ({
+    id: String(x.id || uid()),
+    name: String(x.name || "Sin nombre").slice(0, 40),
+    workMin: Math.max(1, Math.min(180, Number(x.workMin) || p.workMin)),
+    shortMin: Math.max(1, Math.min(60, Number(x.shortMin) || p.shortMin)),
+    longMin: Math.max(1, Math.min(120, Number(x.longMin) || p.longMin)),
+    longEvery: Math.max(2, Math.min(10, Number(x.longEvery) || p.longEvery)),
+  }))
+  .slice(0, 10);
 
   const v = localStorage.getItem("trx_view_v1");
   if (v) state.view = v;
@@ -619,6 +637,8 @@ function switchTab(id) {
 
 /* ===================== Timer ===================== */
 let timerTickHandle = null;
+// Evita pisar inputs mientras el usuario escribe (p.ej. ajustes Pomodoro)
+let _lastTimerUiMode = null;
 
 function clampTimerParts(min, sec){
   const m = Math.max(0, Math.min(999, Number(min) || 0));
@@ -770,10 +790,12 @@ function syncPomodoroInputsFromState(){
   const volP = $("#timerVolPomo");
   const volN = $("#timerVol");
 
-  if (elWork) elWork.value = String(p.workMin);
-  if (elShort) elShort.value = String(p.shortMin);
-  if (elLong) elLong.value = String(p.longMin);
-  if (elEvery) elEvery.value = String(p.longEvery);
+  // No sobreescribas el valor si el usuario está editando ese input
+  const ae = document.activeElement;
+  if (elWork && ae !== elWork) elWork.value = String(p.workMin);
+  if (elShort && ae !== elShort) elShort.value = String(p.shortMin);
+  if (elLong && ae !== elLong) elLong.value = String(p.longMin);
+  if (elEvery && ae !== elEvery) elEvery.value = String(p.longEvery);
   if (elAuto) elAuto.checked = !!p.autoAdvance;
 
   // sincroniza selects de sonido
@@ -815,6 +837,96 @@ function applyPomodoroSettings(){
     save();
   }
   renderTimerUI(true);
+}
+
+function renderPomodoroPresets(force = false){
+  const wrap = $("#pomoPresetList");
+  if (!wrap) return;
+  if (!force){
+    // Evita re-render si el usuario está editando un nombre
+    const ae = document.activeElement;
+    if (ae && ae.classList && ae.classList.contains("pomoPresetName")) return;
+  }
+
+  const presets = state.timer.pomodoroPresets || [];
+  if (!presets.length){
+    wrap.innerHTML = `<div class="muted" style="font-size:12px">No hay configuraciones guardadas.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = presets.map(p => {
+    const meta = `${p.workMin}/${p.shortMin}/${p.longMin} · Largo cada ${p.longEvery}`;
+    return `
+      <div class="pomoPresetItem" data-id="${escapeHtml(p.id)}">
+        <div class="name">
+          <input class="pomoPresetName" type="text" maxlength="40" value="${escapeHtml(p.name)}" />
+          <div class="pomoPresetMeta">${escapeHtml(meta)}</div>
+        </div>
+        <div class="row compact" style="gap:8px; flex-wrap:wrap; justify-content:flex-end">
+          <button class="btn ghost sm" type="button" data-act="apply">Usar</button>
+          <button class="btn ghost sm" type="button" data-act="delete">Borrar</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function saveCurrentPomodoroPreset(){
+  const nameEl = $("#pomoPresetName");
+  const raw = String(nameEl?.value || "").trim();
+  const name = raw || "Sin nombre";
+
+  const list = state.timer.pomodoroPresets || [];
+  if (list.length >= 10){
+    toast({ title:"Pomodoro", message:"Límite: 10 configuraciones guardadas.", type:"warn" });
+    return;
+  }
+
+  const p = state.timer.pomodoro;
+  list.unshift({
+    id: uid(),
+    name: name.slice(0, 40),
+    workMin: Number(p.workMin),
+    shortMin: Number(p.shortMin),
+    longMin: Number(p.longMin),
+    longEvery: Number(p.longEvery),
+  });
+  state.timer.pomodoroPresets = list.slice(0, 10);
+  save();
+  if (nameEl) nameEl.value = "";
+  renderPomodoroPresets(true);
+  toast({ title:"Pomodoro", message:`Guardado: ${name}`, type:"ok" });
+}
+
+function applyPomodoroPresetById(id){
+  const preset = (state.timer.pomodoroPresets || []).find(x => x.id === id);
+  if (!preset) return;
+  const p = state.timer.pomodoro;
+  p.workMin = preset.workMin;
+  p.shortMin = preset.shortMin;
+  p.longMin = preset.longMin;
+  p.longEvery = preset.longEvery;
+  save();
+  // refresca inputs y duración si aplica
+  syncPomodoroInputsFromState();
+  if (state.timer.mode === "pomodoro" && !state.timer.running){
+    const dur = pomoPhaseDurationMs(p.phase);
+    state.timer.durationMs = dur;
+    state.timer.remainingMs = dur;
+    state.timer.endAt = null;
+    save();
+  }
+  renderTimerUI(true);
+  toast({ title:"Pomodoro", message:`Aplicado: ${preset.name}`, type:"ok" });
+}
+
+function deletePomodoroPresetById(id){
+  const before = (state.timer.pomodoroPresets || []).length;
+  state.timer.pomodoroPresets = (state.timer.pomodoroPresets || []).filter(x => x.id !== id);
+  if ((state.timer.pomodoroPresets || []).length !== before){
+    save();
+    renderPomodoroPresets(true);
+    toast({ title:"Pomodoro", message:"Configuración eliminada.", type:"ok" });
+  }
 }
 
 function pomodoroAdvance(){
@@ -973,7 +1085,14 @@ function renderTimerUI(force = false){
 
   // modo (atributo + botones)
   if (sec) sec.dataset.mode = state.timer.mode;
-  syncPomodoroInputsFromState();
+  // Solo sincroniza inputs cuando cambie el modo o cuando lo pidamos explícitamente.
+  // Si no, al hacer tick pisaría el valor mientras el usuario escribe.
+  if (force || _lastTimerUiMode !== state.timer.mode){
+    syncTimerInputsFromState();
+    syncPomodoroInputsFromState();
+    if (state.timer.mode === "pomodoro") renderPomodoroPresets(true);
+    _lastTimerUiMode = state.timer.mode;
+  }
 
   const dur = Math.max(1000, Number(state.timer.durationMs) || 1000);
   const rem = Math.max(0, Number(state.timer.remainingMs) || 0);
@@ -1072,6 +1191,49 @@ function bindTimer(){
   });
   if (pAuto) pAuto.addEventListener("change", applyPomodoroSettings);
 
+  // Presets (guardar / usar / renombrar / borrar)
+  const savePresetBtn = $("#pomoPresetSave");
+  const presetList = $("#pomoPresetList");
+  if (savePresetBtn){
+    savePresetBtn.addEventListener("click", ()=>{
+      // Asegura que el estado está actualizado con lo que el usuario puso en los inputs
+      applyPomodoroSettings();
+      saveCurrentPomodoroPreset();
+    });
+  }
+  const presetNameInput = $("#pomoPresetName");
+  if (presetNameInput){
+    presetNameInput.addEventListener("keydown", (e)=>{
+      if (e.key === "Enter"){ e.preventDefault(); if (savePresetBtn) savePresetBtn.click(); }
+    });
+  }
+  if (presetList && !presetList.dataset.bound){
+    presetList.dataset.bound = "1";
+    presetList.addEventListener("click", (e)=>{
+      const btn = e.target.closest("button[data-act]");
+      if (!btn) return;
+      const item = btn.closest(".pomoPresetItem");
+      const id = item?.dataset?.id;
+      if (!id) return;
+      const act = btn.dataset.act;
+      if (act === "apply") applyPomodoroPresetById(id);
+      if (act === "delete") deletePomodoroPresetById(id);
+    });
+    presetList.addEventListener("input", (e)=>{
+      const inp = e.target.closest(".pomoPresetName");
+      if (!inp) return;
+      const item = inp.closest(".pomoPresetItem");
+      const id = item?.dataset?.id;
+      if (!id) return;
+      const name = String(inp.value || "").trim().slice(0, 40) || "Sin nombre";
+      const preset = (state.timer.pomodoroPresets || []).find(x => x.id === id);
+      if (!preset) return;
+      preset.name = name;
+      save();
+      // no forzamos render para no robar el foco
+    });
+  }
+
   const bindVolChange = (sel)=>{
     if (!sel) return;
     sel.addEventListener("change", ()=>{
@@ -1086,6 +1248,7 @@ function bindTimer(){
   // Inicializa inputs según estado
   syncTimerInputsFromState();
   syncPomodoroInputsFromState();
+  renderPomodoroPresets(true);
   renderTimerUI(true);
 }
 
