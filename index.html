@@ -554,15 +554,18 @@
           </div>
         </div>
 
-        <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
-          <button id="timerStart" class="btn primary" type="button">Iniciar</button>
-          <button id="timerPause" class="btn ghost" type="button">Pausar</button>
-          <button id="timerReset" class="btn danger" type="button">Reiniciar</button>
-        </div>
+      </div>
+    </div>
 
-        <div class="timerMeta">
-          <div class="muted" id="timerMeta">Duración: —</div>
-        </div>
+    <div class="timerActions">
+      <div class="row" style="gap:10px; flex-wrap:wrap; justify-content:center">
+        <button id="timerStart" class="btn primary" type="button">Iniciar</button>
+        <button id="timerPause" class="btn ghost" type="button">Pausar</button>
+        <button id="timerReset" class="btn danger" type="button">Reiniciar</button>
+      </div>
+
+      <div class="timerMeta">
+        <div class="muted" id="timerMeta">Duración: —</div>
       </div>
     </div>
   </div>
@@ -669,7 +672,7 @@
         <div id="sheetTitle" class="sheetTitle">Instalar en iPhone / iPad</div>
         <div class="sheetSub">Safari → Compartir → Añadir a pantalla de inicio</div>
       </div>
-      <button id="btnSheetClose" class="btnIcon" aria-label="Cerrar">✕</button>
+      <button id="btnSheetClose" type="button" class="btnIcon" aria-label="Cerrar">✕</button>
     </div>
 
     <div class="sheetSteps">
@@ -699,7 +702,7 @@
     </div>
 
     <div class="sheetFooter">
-      <button id="btnSheetOk" class="installBtn btnPrimary" style="width:100%">Entendido</button>
+      <button id="btnSheetOk" type="button" class="installBtn btnPrimary" style="width:100%">Entendido</button>
     </div>
   </div>
 </div>
