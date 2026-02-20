@@ -947,6 +947,17 @@ canvas{
   width:100%;
 }
 
+
+.timerActions{
+  margin-top:12px;
+}
+.timerActions .row{
+  justify-content:center;
+}
+.timerActions .btn{
+  min-width: 110px;
+}
+
 .timerMeta{
   margin-top:12px;
   padding-top:12px;
