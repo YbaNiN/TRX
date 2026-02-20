@@ -1,6 +1,10 @@
 /* sw.js — TRX Panel (App Shell cache-first + fallback a index.html) */
 
-const CACHE_VERSION = "v8"; // <- súbelo (v2, v3...) cuando publiques cambios
+<<<<<<< HEAD
+const CACHE_VERSION = "v10"; // <- súbelo (v2, v3...) cuando publiques cambios
+=======
+const CACHE_VERSION = "v9"; // <- súbelo (v2, v3...) cuando publiques cambios
+>>>>>>> 841dac39c3e7c6bb6cc7c8705cc050a7ab4b41df
 const CACHE_NAME = `trx-panel-${CACHE_VERSION}`;
 
 // App Shell (lo imprescindible para que la PWA arranque offline)

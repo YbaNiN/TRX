@@ -1090,7 +1090,10 @@ function renderTimerUI(force = false){
   if (force || _lastTimerUiMode !== state.timer.mode){
     syncTimerInputsFromState();
     syncPomodoroInputsFromState();
+<<<<<<< HEAD
     if (state.timer.mode === "pomodoro") renderPomodoroPresets(true);
+=======
+>>>>>>> 841dac39c3e7c6bb6cc7c8705cc050a7ab4b41df
     _lastTimerUiMode = state.timer.mode;
   }
 
