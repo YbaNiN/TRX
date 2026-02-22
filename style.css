@@ -1664,3 +1664,24 @@ body.light .note{
     border-radius: 14px;
   }
 }
+
+
+/* ===== Discord quick actions ===== */
+.discordQuickBar{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.dqBtn{ border-color: rgba(86,138,255,.25); background: rgba(35,56,110,.22); }
+.dqBtn:hover{ transform: translateY(-1px); }
+.discordModalCard{ max-width: 760px; }
+.discordForm{ display:grid; gap:12px; }
+.discordGrid{ gap:12px; }
+.discordForm textarea.input{ min-height: 120px; resize: vertical; }
+.discordFormFoot{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:4px; }
+#discordFormHint{ font-size: 12px; }
+
+@media (max-width: 899px){
+  .discordQuickBar{ margin-top:10px; }
+  .discordQuickBar .dqBtn{ flex:1 1 calc(50% - 6px); justify-content:center; }
+  .discordFormFoot{ flex-direction:column; align-items:stretch; }
+  .discordFormFoot .row{ width:100%; }
+  .discordFormFoot .row .btn{ flex:1; }
+  .discordGrid{ grid-template-columns: 1fr !important; }
+}
