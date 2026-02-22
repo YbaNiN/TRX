@@ -25,6 +25,21 @@ const USERS = {
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
+
+// Discord webhooks por canal (pon aquí tus URLs reales)
+const DISCORD_WEBHOOKS = {
+  peticiones: "https://discord.com/api/webhooks/1475201722598035466/TiovwsMXoldKuituNh48fn-Mn5QkjzjXe1Rl6wCERr5NHWwFWe5BpU86m5GHE-XohJrY",
+  reportes: "https://discord.com/api/webhooks/1475203494288953467/ZYY0YXTzNtRMwU-hIzVgYLOIXjZU994f3A7kabgWsRGqFEHAJ92Q8bx-MTrj34IhrL2A",
+  sugerencias: "https://discord.com/api/webhooks/1475203356472381592/wHB4VJTFF8tSl_LcriW35K8w7sBwC41vFEQ4VsBg82zcuk6nlNY1DJ9kurP5gZGKPQwY",
+  contacto: "https://discord.com/api/webhooks/1475203570826481806/LDIqUrTbaxPYFiNky1Jax58oFhhOvQWEwrJvm4kwVAgiF0IHtD9_oabiIcNFA-mBu6hS",
+};
+const DISCORD_CHANNEL_LABELS = {
+  peticiones: "Peticiones",
+  reportes: "Reportes",
+  sugerencias: "Sugerencias",
+  contacto: "Contacto",
+};
+
 const state = {
   tasks: [],
   notes: [],
@@ -2418,6 +2433,135 @@ function bindUx() {
   });
 }
 
+
+
+/* ===================== Discord forms ===================== */
+function discordFormChannelLabel(type){
+  return DISCORD_CHANNEL_LABELS[type] || type || "Discord";
+}
+
+function openDiscordForm(type){
+  const modal = document.getElementById("discordFormModal");
+  if (!modal) return;
+  const t = (type || "peticiones").toLowerCase();
+  const lbl = discordFormChannelLabel(t);
+  const who = state.session?.u ? `${state.session.u} (${state.session.role||"user"})` : "";
+
+  const title = document.getElementById("discordFormTitle");
+  const desc = document.getElementById("discordFormDesc");
+  const hint = document.getElementById("discordFormHint");
+  const typeEl = document.getElementById("discordFormType");
+  const nameEl = document.getElementById("discordFormName");
+  const contactEl = document.getElementById("discordFormContact");
+  const subjEl = document.getElementById("discordFormSubject");
+  const msgEl = document.getElementById("discordFormMessage");
+
+  if (title) title.textContent = `${lbl} · Discord`;
+  if (desc) desc.textContent = "Rellena el formulario y se enviará al canal correspondiente.";
+  if (hint) hint.textContent = `Canal: #${t}`;
+  if (typeEl) typeEl.value = t;
+  if (nameEl && !nameEl.value) nameEl.value = who;
+  if (contactEl && !contactEl.value) contactEl.value = "";
+  if (subjEl) subjEl.value = "";
+  if (msgEl) msgEl.value = "";
+
+  modal.setAttribute("aria-hidden", "false");
+  modal.classList.add("open");
+  document.body.classList.add("noScroll");
+  setTimeout(()=>subjEl?.focus(), 10);
+}
+
+function closeDiscordForm(){
+  const modal = document.getElementById("discordFormModal");
+  if (!modal) return;
+  modal.setAttribute("aria-hidden", "true");
+  modal.classList.remove("open");
+  document.body.classList.remove("noScroll");
+  const form = document.getElementById("discordForm");
+  if (form) form.reset();
+}
+
+async function sendDiscordForm(e){
+  e.preventDefault();
+  const sendBtn = document.getElementById("discordFormSend");
+  const type = (document.getElementById("discordFormType")?.value || "").trim();
+  const webhook = DISCORD_WEBHOOKS[type];
+  if (!webhook){
+    toast({ title:"Discord", message:`Falta configurar el webhook de ${discordFormChannelLabel(type)}.`, type:"warn" });
+    return;
+  }
+
+  const name = (document.getElementById("discordFormName")?.value || "").trim() || "Sin nombre";
+  const contact = (document.getElementById("discordFormContact")?.value || "").trim();
+  const subject = (document.getElementById("discordFormSubject")?.value || "").trim();
+  const message = (document.getElementById("discordFormMessage")?.value || "").trim();
+  if (!subject || !message){
+    toast({ title:"Formulario", message:"Asunto y mensaje son obligatorios.", type:"warn" });
+    return;
+  }
+
+  const colorMap = { peticiones: 3447003, reportes: 15158332, sugerencias: 10181046, contacto: 3066993 };
+  const payload = {
+    username: "TRX Panel",
+    embeds: [{
+      title: `${discordFormChannelLabel(type)} · ${subject}`.slice(0, 256),
+      description: message.slice(0, 4000),
+      color: colorMap[type] || 5793266,
+      fields: [
+        { name: "Nombre", value: name.slice(0, 1024), inline: true },
+        { name: "Contacto", value: (contact || "No indicado").slice(0, 1024), inline: true },
+        { name: "Usuario TRX", value: ((state.session?.u || "No logueado") + (state.session?.role ? ` (${state.session.role})` : "")).slice(0, 1024), inline: false },
+      ],
+      footer: { text: `TRX Panel · ${new Date().toLocaleString()}` }
+    }]
+  };
+
+  try{
+    if (sendBtn){ sendBtn.disabled = true; sendBtn.textContent = "Enviando..."; }
+    const res = await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    pushNotif({ title:"Discord", message:`Enviado a #${type}`, type:"ok" });
+    toast({ title:"Discord", message:`Mensaje enviado a ${discordFormChannelLabel(type)}.`, type:"ok" });
+    closeDiscordForm();
+  }catch(err){
+    console.error("Discord webhook error", err);
+    toast({ title:"Discord", message:"No se pudo enviar. Revisa webhook/CORS o usa backend proxy.", type:"danger" });
+  }finally{
+    if (sendBtn){ sendBtn.disabled = false; sendBtn.textContent = "Enviar"; }
+  }
+}
+
+function bindDiscordForms(){
+  const quickBar = document.getElementById("discordQuickBar");
+  if (quickBar && !quickBar.dataset.bound){
+    quickBar.dataset.bound = "1";
+    quickBar.addEventListener("click", (e)=>{
+      const btn = e.target.closest("[data-discord-form]");
+      if (!btn) return;
+      openDiscordForm(btn.dataset.discordForm);
+    });
+  }
+
+  const modal = document.getElementById("discordFormModal");
+  if (!modal || modal.dataset.bound) return;
+  modal.dataset.bound = "1";
+
+  document.getElementById("discordForm")?.addEventListener("submit", sendDiscordForm);
+  document.getElementById("discordFormCancel")?.addEventListener("click", closeDiscordForm);
+  document.getElementById("discordFormX")?.addEventListener("click", closeDiscordForm);
+  modal.addEventListener("click", (e)=>{
+    if (e.target?.closest("[data-close-discord='1']")) closeDiscordForm();
+  });
+  document.addEventListener("keydown", (e)=>{
+    if (e.key === "Escape" && modal.classList.contains("open")) closeDiscordForm();
+  });
+}
+
 /* ===================== Main ===================== */
 /* ----- PWA Install UX (Mobile-first: FAB + smarter banner + iOS sheet) ----- */
 let deferredInstallPrompt = null;
@@ -2665,6 +2809,7 @@ function main() {
   bindEditModal();
   bindCmdk();
   bindUx();
+  bindDiscordForms();
 
   initInstallUX();
 
