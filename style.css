@@ -180,7 +180,7 @@ body{
   display:none;
   z-index:1050;
 }
-.modal.show{display:block}
+.modal.show,.modal.open{display:block}
 .modalBackdrop{
   position:absolute; inset:0;
   background: rgba(0,0,0,.55);
