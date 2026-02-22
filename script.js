@@ -11,16 +11,15 @@ const LS = {
   timer: "trx_timer_v1",
 };
 
-const USERS = {
-  admin: {
-    role: "admin",
-    pass_sha256: "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9" // admin123
-  },
-  user: {
-    role: "user",
-    pass_sha256: "e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446" // user123
-  }
-};
+const SUPABASE_URL = "https://hfduuucvknucjhrtodpt.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_HpAVTQ7Op6b2Cjnp9rBdrg_RmZrDJ9F";
+let supabaseClient = null;
+let authUiMode = "login"; // login | register
+let cloudSyncTimer = null;
+let cloudSyncInFlight = false;
+let cloudBootstrappedUserId = null;
+let cloudSuspendSync = false;
+let cloudLastSignatures = { tasks:"", notes:"", presets:"", settings:"" };
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -28,10 +27,10 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 // Discord webhooks por canal (pon aquí tus URLs reales)
 const DISCORD_WEBHOOKS = {
-  peticiones: "https://discord.com/api/webhooks/1475201722598035466/TiovwsMXoldKuituNh48fn-Mn5QkjzjXe1Rl6wCERr5NHWwFWe5BpU86m5GHE-XohJrY",
-  reportes: "https://discord.com/api/webhooks/1475203494288953467/ZYY0YXTzNtRMwU-hIzVgYLOIXjZU994f3A7kabgWsRGqFEHAJ92Q8bx-MTrj34IhrL2A",
-  sugerencias: "https://discord.com/api/webhooks/1475203356472381592/wHB4VJTFF8tSl_LcriW35K8w7sBwC41vFEQ4VsBg82zcuk6nlNY1DJ9kurP5gZGKPQwY",
-  contacto: "https://discord.com/api/webhooks/1475203570826481806/LDIqUrTbaxPYFiNky1Jax58oFhhOvQWEwrJvm4kwVAgiF0IHtD9_oabiIcNFA-mBu6hS",
+  peticiones: "",
+  reportes: "",
+  sugerencias: "",
+  contacto: "",
 };
 const DISCORD_CHANNEL_LABELS = {
   peticiones: "Peticiones",
@@ -262,6 +261,7 @@ function save() {
   if (state.session) localStorage.setItem(LS.session, JSON.stringify(state.session));
   localStorage.setItem("trx_view_v1", state.view);
   localStorage.setItem(LS.timer, JSON.stringify(state.timer || null));
+  scheduleCloudSync();
 }
 
 /* ===================== Theme + Density ===================== */
@@ -271,6 +271,7 @@ function setTheme(mode) {
   localStorage.setItem(LS.theme, mode);
   $("#btnTheme").textContent = light ? "Claro" : "Oscuro";
   requestAnimationFrame(redrawChartsIfVisible);
+  scheduleCloudSync(300);
 }
 
 function initTheme() {
@@ -283,6 +284,7 @@ function setDensity(mode) {
   document.body.classList.toggle("compact", compact);
   localStorage.setItem(LS.density, mode);
   $("#btnDensity").textContent = compact ? "Normal" : "Compacta";
+  scheduleCloudSync(300);
 }
 
 function initDensity() {
@@ -556,6 +558,241 @@ function cmdkRun() {
   closeCmdk();
 }
 
+
+function isUuid(v){
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||""));
+}
+function currentThemeMode(){
+  return document.body.classList.contains("light") ? "light" : "dark";
+}
+function currentDensityMode(){
+  return document.body.classList.contains("compact") ? "compact" : "normal";
+}
+function cloudTaskRowsForState(userId){
+  return (state.tasks || []).map(normalizeTask).map(t => {
+    const row = {
+      user_id: userId,
+      title: t.title || "",
+      description: t.description || null,
+      priority: t.priority || "med",
+      status: t.status || "todo",
+      category: t.category || "task",
+      start_date: t.startDate || null,
+      end_date: t.endDate || null,
+      start_time: t.startTime || null,
+      end_time: t.endTime || null,
+      tags: Array.isArray(t.tags) ? t.tags : [],
+      color: t.color || null,
+      done: !!t.done,
+      done_at: t.doneAt ? new Date(Number(t.doneAt)).toISOString() : null,
+      created_at: t.createdAt ? new Date(Number(t.createdAt)).toISOString() : new Date().toISOString(),
+    };
+    if (isUuid(t.id)) row.id = t.id;
+    return row;
+  });
+}
+function cloudNoteRowsForState(userId){
+  return (state.notes || []).map(n => {
+    let content = "";
+    try { content = JSON.stringify({ text: String(n.text || ""), pinned: !!n.pinned }); }
+    catch { content = String(n.text || ""); }
+    const row = {
+      user_id: userId,
+      content,
+      created_at: n.createdAt ? new Date(Number(n.createdAt)).toISOString() : new Date().toISOString()
+    };
+    if (isUuid(n.id)) row.id = n.id;
+    return row;
+  });
+}
+function cloudPresetRowsForState(userId){
+  return (state.timer?.pomodoroPresets || []).slice(0,10).map(p => {
+    const row = {
+      user_id: userId,
+      name: String(p.name || "Sin nombre").slice(0, 80),
+      work_min: Number(p.workMin) || 25,
+      break_min: Number(p.shortMin) || 5,
+      long_break_min: Number(p.longMin) || 15,
+      long_every: Number(p.longEvery) || 4,
+    };
+    if (isUuid(p.id)) row.id = p.id;
+    return row;
+  });
+}
+function cloudSettingsRowForState(userId){
+  return { user_id: userId, theme: currentThemeMode(), density: currentDensityMode(), task_view: state.view === "kanban" ? "kanban" : "list" };
+}
+function computeCloudSignatures(){
+  const tasksSig = JSON.stringify((state.tasks || []).map(normalizeTask).map(t => [t.id,t.title,t.priority,t.status,t.category,t.startDate,t.endDate,t.startTime,t.endTime,(t.tags||[]).join("|"),t.color||"",t.done?1:0,t.doneAt||0]));
+  const notesSig = JSON.stringify((state.notes || []).map(n => [n.id,n.text||"",!!n.pinned,n.createdAt||0]));
+  const presetsSig = JSON.stringify((state.timer?.pomodoroPresets || []).slice(0,10).map(p => [p.id,p.name,p.workMin,p.shortMin,p.longMin,p.longEvery]));
+  const settingsSig = JSON.stringify([currentThemeMode(), currentDensityMode(), state.view]);
+  return { tasks: tasksSig, notes: notesSig, presets: presetsSig, settings: settingsSig };
+}
+async function syncCloudNow(){
+  if (cloudSuspendSync || cloudSyncInFlight) return;
+  const userId = state.session?.supabaseUserId;
+  if (!userId || cloudBootstrappedUserId !== userId) return;
+  const sb = await initSupabaseClient();
+  if (!sb) return;
+  const sig = computeCloudSignatures();
+  const changed = Object.keys(sig).filter(k => sig[k] !== cloudLastSignatures[k]);
+  if (!changed.length) return;
+  cloudSyncInFlight = true;
+  try {
+    if (changed.includes("tasks")){
+      await sb.from("tasks").delete().eq("user_id", userId);
+      const rows = cloudTaskRowsForState(userId);
+      if (rows.length) {
+        const { data, error } = await sb.from("tasks").insert(rows).select("id,title,priority,status,category,start_date,end_date,start_time,end_time,tags,color,done,done_at,created_at");
+        if (error) throw error;
+        state.tasks = (data || []).map(r => normalizeTask({ id:r.id,title:r.title,priority:r.priority,status:r.status,category:r.category,startDate:r.start_date,endDate:r.end_date,startTime:r.start_time?String(r.start_time).slice(0,5):"",endTime:r.end_time?String(r.end_time).slice(0,5):"",tags:Array.isArray(r.tags)?r.tags:[],color:r.color,done:!!r.done,doneAt:r.done_at?new Date(r.done_at).getTime():null,createdAt:r.created_at?new Date(r.created_at).getTime():Date.now() }));
+      }
+    }
+    if (changed.includes("notes")){
+      await sb.from("notes").delete().eq("user_id", userId);
+      const rows = cloudNoteRowsForState(userId);
+      if (rows.length) {
+        const { data, error } = await sb.from("notes").insert(rows).select("id,content,created_at");
+        if (error) throw error;
+        state.notes = (data || []).map(r => { let text = String(r.content || ""); let pinned = false; try { const parsed = JSON.parse(text); if (parsed && typeof parsed === "object") { text = String(parsed.text || ""); pinned = !!parsed.pinned; } } catch {} return { id:r.id, text, pinned, createdAt:r.created_at?new Date(r.created_at).getTime():Date.now() }; });
+      }
+    }
+    if (changed.includes("presets")){
+      await sb.from("pomodoro_presets").delete().eq("user_id", userId);
+      const rows = cloudPresetRowsForState(userId);
+      if (rows.length) {
+        const { data, error } = await sb.from("pomodoro_presets").insert(rows).select("id,name,work_min,break_min,long_break_min,long_every");
+        if (error) throw error;
+        state.timer.pomodoroPresets = (data || []).map(r => ({ id:r.id, name:String(r.name || "Sin nombre"), workMin:Number(r.work_min)||25, shortMin:Number(r.break_min)||5, longMin:Number(r.long_break_min)||15, longEvery:Number(r.long_every)||4 }));
+        if (typeof renderPomodoroPresets === "function") renderPomodoroPresets(true);
+      }
+    }
+    if (changed.includes("settings")){
+      const { error } = await sb.from("user_settings").upsert(cloudSettingsRowForState(userId), { onConflict: "user_id" });
+      if (error) throw error;
+    }
+    save();
+    cloudLastSignatures = computeCloudSignatures();
+  } catch (e) {
+    console.warn("Cloud sync error", e);
+  } finally {
+    cloudSyncInFlight = false;
+  }
+}
+function scheduleCloudSync(delay = 700){
+  if (cloudSuspendSync) return;
+  if (!state.session?.supabaseUserId) return;
+  if (cloudBootstrappedUserId !== state.session.supabaseUserId) return;
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(() => { syncCloudNow(); }, delay);
+}
+async function loadCloudDataForCurrentUser(){
+  const userId = state.session?.supabaseUserId;
+  const sb = await initSupabaseClient();
+  if (!sb || !userId) return false;
+  cloudSuspendSync = true;
+  try {
+    const [tasksRes, notesRes, presetsRes, settingsRes] = await Promise.all([
+      sb.from("tasks").select("id,title,priority,status,category,start_date,end_date,start_time,end_time,tags,color,done,done_at,created_at").eq("user_id", userId).order("created_at", { ascending: false }),
+      sb.from("notes").select("id,content,created_at").eq("user_id", userId).order("created_at", { ascending: false }),
+      sb.from("pomodoro_presets").select("id,name,work_min,break_min,long_break_min,long_every").eq("user_id", userId).order("created_at", { ascending: false }),
+      sb.from("user_settings").select("theme,density,task_view").eq("user_id", userId).maybeSingle(),
+    ]);
+    if (!tasksRes.error && Array.isArray(tasksRes.data)) {
+      state.tasks = tasksRes.data.map(r => normalizeTask({ id:r.id,title:r.title,priority:r.priority,status:r.status,category:r.category,startDate:r.start_date,endDate:r.end_date,startTime:r.start_time?String(r.start_time).slice(0,5):"",endTime:r.end_time?String(r.end_time).slice(0,5):"",tags:Array.isArray(r.tags)?r.tags:[],color:r.color,done:!!r.done,doneAt:r.done_at?new Date(r.done_at).getTime():null,createdAt:r.created_at?new Date(r.created_at).getTime():Date.now() }));
+    }
+    if (!notesRes.error && Array.isArray(notesRes.data)) {
+      state.notes = notesRes.data.map(r => { let text = String(r.content || ""); let pinned = false; try { const parsed = JSON.parse(text); if (parsed && typeof parsed === "object") { text = String(parsed.text || ""); pinned = !!parsed.pinned; } } catch {} return { id:r.id, text, pinned, createdAt:r.created_at?new Date(r.created_at).getTime():Date.now() }; });
+    }
+    if (!presetsRes.error && Array.isArray(presetsRes.data)) {
+      state.timer.pomodoroPresets = presetsRes.data.slice(0,10).map(r => ({ id:r.id, name:String(r.name || "Sin nombre").slice(0,40), workMin:Number(r.work_min)||25, shortMin:Number(r.break_min)||5, longMin:Number(r.long_break_min)||15, longEvery:Number(r.long_every)||4 }));
+    }
+    if (!settingsRes.error && settingsRes.data) {
+      state.view = settingsRes.data.task_view === "kanban" ? "kanban" : "list";
+      if (settingsRes.data.theme) setTheme(settingsRes.data.theme);
+      if (settingsRes.data.density) setDensity(settingsRes.data.density);
+      if (document.getElementById("viewSelect")) document.getElementById("viewSelect").value = state.view;
+    }
+    save();
+    cloudBootstrappedUserId = userId;
+    cloudLastSignatures = computeCloudSignatures();
+    return true;
+  } catch (e) {
+    console.warn("Cloud load error", e);
+    return false;
+  } finally {
+    cloudSuspendSync = false;
+  }
+}
+
+
+async function initSupabaseClient(){
+  if (supabaseClient) return supabaseClient;
+  if (!window.supabase || !SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+  try {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
+    return supabaseClient;
+  } catch (e) {
+    console.warn("Supabase init error", e);
+    return null;
+  }
+}
+
+async function fetchProfileForUser(user){
+  const sb = await initSupabaseClient();
+  if (!sb || !user?.id) {
+    const email = user?.email || "";
+    return { username: (email.split("@")[0] || "usuario"), role: "user" };
+  }
+  const { data, error } = await sb.from("profiles").select("username,display_name,role").eq("id", user.id).maybeSingle();
+  if (error) {
+    console.warn("Profile fetch error", error);
+  }
+  const email = user.email || "";
+  return {
+    username: data?.display_name || data?.username || (email.split("@")[0] || "usuario"),
+    role: data?.role || "user"
+  };
+}
+
+async function applySupabaseSession(user, opts = {}){
+  if (!user) return false;
+  const profile = await fetchProfileForUser(user);
+  setSession(profile.username, profile.role, user.email || "", user.id || null);
+  await loadCloudDataForCurrentUser();
+  if (opts.toastMessage) {
+    toast({ title:"Bienvenido", message: opts.toastMessage, type:"ok" });
+  }
+  return true;
+}
+
+function setAuthMode(mode){
+  authUiMode = mode === "register" ? "register" : "login";
+  const form = document.getElementById("loginForm");
+  if (form) form.dataset.mode = authUiMode;
+  const regNameField = document.getElementById("regNameField");
+  const regName = document.getElementById("regName");
+  const email = document.getElementById("loginEmail");
+  const pass = document.getElementById("loginPass");
+  const btn = document.getElementById("loginBtn")?.querySelector?.(".btnText");
+  const toggle = document.getElementById("authModeToggle");
+  const chip = document.getElementById("authModeChip");
+  if (regNameField) regNameField.style.display = authUiMode === "register" ? "block" : "none";
+  if (regName) regName.required = authUiMode === "register";
+  if (email) email.autocomplete = authUiMode === "register" ? "email" : "email";
+  if (pass) pass.autocomplete = authUiMode === "register" ? "new-password" : "current-password";
+  if (btn) btn.textContent = authUiMode === "register" ? "Crear cuenta" : "Entrar";
+  if (toggle) toggle.textContent = authUiMode === "register" ? "Ya tengo cuenta" : "Crear cuenta";
+  if (chip) chip.textContent = authUiMode === "register" ? "Registro" : "Login";
+  const hint = document.getElementById("authHint");
+  if (hint) hint.textContent = authUiMode === "register" ? "Regístrate con correo y contraseña." : "Inicia sesión con tu correo (no con nombre de usuario).";
+  const err = document.getElementById("loginErr");
+  if (err) err.textContent = "";
+}
+
 /* ===================== Auth / Roles ===================== */
 function showGate(on) {
   $("#authGate").classList.toggle("hidden", !on);
@@ -563,18 +800,34 @@ function showGate(on) {
 
 function lockByRole(role) {
   const isAdmin = role === "admin";
+  // Notas y Stats quedan disponibles para todos los usuarios.
+  // El sistema de roles se mantiene para futuras secciones exclusivas de admin.
   $$(".tab").forEach((t) => {
     const req = t.getAttribute("data-requires-role");
     if (!req) return;
-    const ok = req === role;
+
+    const tabId = t.getAttribute("data-tab");
+    const allowForAll = tabId === "notes" || tabId === "stats";
+    const ok = allowForAll ? true : (req === role);
+
     t.disabled = !ok;
-    if (!ok && t.classList.contains("active")) switchTab("overview");
+    t.classList.toggle("is-locked", !ok);
+    if (ok) {
+      t.removeAttribute("aria-disabled");
+      t.tabIndex = 0;
+    } else {
+      t.setAttribute("aria-disabled", "true");
+      t.tabIndex = -1;
+      if (t.classList.contains("active")) switchTab("overview");
+    }
   });
+
+  // Mantener acciones sensibles solo para admin (por ejemplo, reinicio global)
   $("#btnReset").style.display = isAdmin ? "inline-flex" : "none";
 }
 
-function setSession(username, role) {
-  state.session = { u: username, role, ts: Date.now() };
+function setSession(username, role, email = "", supabaseUserId = null) {
+  state.session = { u: username, role, email, supabaseUserId: supabaseUserId || state.session?.supabaseUserId || null, ts: Date.now() };
   localStorage.setItem(LS.session, JSON.stringify(state.session));
   $("#who").textContent = `${username} (${role})`;
   lockByRole(role);
@@ -584,8 +837,18 @@ function setSession(username, role) {
   try { scheduleInstallUIAfterLogin(); } catch {}
 }
 
-function clearSession() {
+async function clearSession() {
+  try {
+    const sb = await initSupabaseClient();
+    if (sb) {
+      await sb.auth.signOut();
+    }
+  } catch (e) {
+    console.warn("Supabase signOut error", e);
+  }
   state.session = null;
+  cloudBootstrappedUserId = null;
+  cloudLastSignatures = { tasks:"", notes:"", presets:"", settings:"" };
   localStorage.removeItem(LS.session);
   $("#who").textContent = "";
   showGate(true);
@@ -599,14 +862,64 @@ async function sha256Hex(text) {
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function tryLogin(username, password) {
-  const u = (username || "").trim().toLowerCase();
+function authErrorMessage(error, mode = "login") {
+  const raw = (error?.message || error?.error_description || error || "").toString();
+  const msg = raw.toLowerCase();
+  if (msg.includes("invalid login credentials") || msg.includes("invalid_credentials")) {
+    return mode === "login"
+      ? "Correo o contraseña incorrectos. Inicia sesión con tu EMAIL (no con nombre de usuario)."
+      : "No se pudo crear la cuenta con esas credenciales.";
+  }
+  if (msg.includes("email not confirmed") || msg.includes("email_not_confirmed")) {
+    return "Tu correo no está confirmado. Revisa tu email o desactiva la confirmación en Supabase para pruebas.";
+  }
+  if (msg.includes("already registered") || msg.includes("user already registered")) {
+    return "Ese correo ya está registrado. Prueba a iniciar sesión.";
+  }
+  if (msg.includes("invalid api key") || msg.includes("apikey")) {
+    return "La clave pública de Supabase no es válida o está incompleta.";
+  }
+  return raw || (mode === "login" ? "No se pudo iniciar sesión" : "No se pudo crear la cuenta");
+}
+
+async function tryLogin(email, password) {
+  const sb = await initSupabaseClient();
+  if (!sb) return { ok:false, error:"Supabase no está configurado" };
+  const e = (email || "").trim().toLowerCase();
   const p = password || "";
-  if (!USERS[u]) return false;
-  const hash = await sha256Hex(p);
-  if (hash !== USERS[u].pass_sha256) return false;
-  setSession(u, USERS[u].role);
-  return true;
+  const { data, error } = await sb.auth.signInWithPassword({ email: e, password: p });
+  if (error) return { ok:false, error: authErrorMessage(error, "login") };
+  if (!data?.user) return { ok:false, error:"Sesión no disponible" };
+  await applySupabaseSession(data.user, { toastMessage: "Acceso concedido" });
+  return { ok:true };
+}
+
+async function tryRegister(name, email, password){
+  const sb = await initSupabaseClient();
+  if (!sb) return { ok:false, error:"Supabase no está configurado" };
+  const displayName = String(name || "").trim();
+  const e = (email || "").trim().toLowerCase();
+  const p = password || "";
+  if (displayName.length < 2) return { ok:false, error:"Pon un nombre de al menos 2 caracteres" };
+  if (p.length < 6) return { ok:false, error:"La contraseña debe tener al menos 6 caracteres" };
+
+  const { data, error } = await sb.auth.signUp({
+    email: e,
+    password: p,
+    options: { data: { username: displayName } }
+  });
+  if (error) return { ok:false, error: authErrorMessage(error, "register") };
+
+  if (data?.user && data?.session) {
+    // Asegura username amigable por si el trigger usó el correo
+    try {
+      await sb.from("profiles").update({ username: displayName, display_name: displayName }).eq("id", data.user.id);
+    } catch {}
+    await applySupabaseSession(data.user, { toastMessage: "Cuenta creada" });
+    return { ok:true, registered:true };
+  }
+
+  return { ok:true, registered:true, needsEmailConfirm:true };
 }
 
 /* ===================== Sidebar Mobile ===================== */
@@ -2048,6 +2361,21 @@ async function resetAll() {
   state.notifs = [];
   state.tagFilter = null;
 
+  if (state.session?.supabaseUserId) {
+    try {
+      const sb = await initSupabaseClient();
+      if (sb) {
+        await Promise.all([
+          sb.from("tasks").delete().eq("user_id", state.session.supabaseUserId),
+          sb.from("notes").delete().eq("user_id", state.session.supabaseUserId),
+          sb.from("pomodoro_presets").delete().eq("user_id", state.session.supabaseUserId),
+        ]);
+      }
+    } catch (e) {
+      console.warn("Cloud reset error", e);
+    }
+  }
+
   save();
   renderAll();
   switchTab("overview");
@@ -2407,7 +2735,12 @@ function bindUx() {
   $("#rangeSelect").addEventListener("change", () => redrawChartsIfVisible());
   window.addEventListener("resize", () => redrawChartsIfVisible());
 
-  // login
+  // auth (Supabase login / registro)
+  setAuthMode("login");
+  $("#authModeToggle")?.addEventListener("click", () => {
+    setAuthMode(authUiMode === "login" ? "register" : "login");
+  });
+
   $("#loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     $("#loginErr").textContent = "";
@@ -2416,17 +2749,30 @@ function bindUx() {
     btn.classList.add("loading");
     btn.disabled = true;
 
-    await new Promise(r => setTimeout(r, 260));
-    const ok = await tryLogin($("#loginUser").value, $("#loginPass").value);
+    await new Promise(r => setTimeout(r, 180));
+
+    const email = $("#loginEmail").value;
+    const pass = $("#loginPass").value;
+    let res;
+    if (authUiMode === "register") {
+      res = await tryRegister($("#regName").value, email, pass);
+    } else {
+      res = await tryLogin(email, pass);
+    }
 
     btn.classList.remove("loading");
     btn.disabled = false;
 
-    if (!ok) {
-      $("#loginErr").textContent = "Credenciales inválidas";
-      toast({ title:"Acceso denegado", message:"Revisa usuario y contraseña", type:"danger" });
-    } else {
-      toast({ title:"Bienvenido", message:"Acceso concedido", type:"ok" });
+    if (!res?.ok) {
+      $("#loginErr").textContent = res?.error || "No se pudo completar la operación";
+      toast({ title:"Acceso", message: res?.error || "Error", type:"danger" });
+      return;
+    }
+
+    if (res?.needsEmailConfirm) {
+      $("#loginErr").textContent = "Cuenta creada. Revisa tu correo para confirmar el acceso.";
+      toast({ title:"Cuenta creada", message:"Confirma tu email para entrar", type:"info" });
+      setAuthMode("login");
     }
 
     $("#loginPass").value = "";
@@ -2796,7 +3142,7 @@ function scheduleInstallUIAfterLogin(){
   }, 6500);
 }
 
-function main() {
+async function main() {
   load();
   initTheme();
   initDensity();
@@ -2820,13 +3166,28 @@ function main() {
     });
   }
 
-  // restore session
-  if (state.session?.u && state.session?.role) {
+  // restore session (Supabase)
+  let restored = false;
+  try {
+    const sb = await initSupabaseClient();
+    if (sb) {
+      const { data } = await sb.auth.getSession();
+      if (data?.session?.user) {
+        await applySupabaseSession(data.session.user);
+        restored = true;
+      }
+    }
+  } catch (e) {
+    console.warn("Supabase session restore error", e);
+  }
+
+  if (!restored && state.session?.u && state.session?.role) {
+    // compatibilidad con sesiones antiguas guardadas localmente
     $("#who").textContent = `${state.session.u} (${state.session.role})`;
     lockByRole(state.session.role);
     showGate(false);
     try { scheduleInstallUIAfterLogin(); } catch {}
-  } else {
+  } else if (!restored) {
     showGate(true);
   }
 
