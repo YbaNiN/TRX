@@ -256,6 +256,12 @@
         <div class="topTitle">
           <div class="h">Panel</div>
           <div class="p">Gestión y métricas</div>
+          <div class="discordQuickBar" id="discordQuickBar">
+            <button class="btn ghost sm dqBtn" type="button" data-discord-form="peticiones">Peticiones</button>
+            <button class="btn ghost sm dqBtn" type="button" data-discord-form="reportes">Reportes</button>
+            <button class="btn ghost sm dqBtn" type="button" data-discord-form="sugerencias">Sugerencias</button>
+            <button class="btn ghost sm dqBtn" type="button" data-discord-form="contacto">Contacto</button>
+          </div>
         </div>
 
         <div class="topPills">
@@ -641,6 +647,48 @@
 
   <script src="script.js"></script>
 <!-- Install FAB (Mobile) -->
+<!-- Discord forms modal -->
+<div id="discordFormModal" class="modal" aria-hidden="true">
+  <div class="modalBackdrop" data-close-discord="1"></div>
+  <div class="modalCard discordModalCard" role="dialog" aria-modal="true" aria-labelledby="discordFormTitle">
+    <div class="modalHead">
+      <div>
+        <div id="discordFormTitle" class="modalTitle">Enviar a Discord</div>
+        <div id="discordFormDesc" class="modalDesc">Se enviará al canal correspondiente.</div>
+      </div>
+      <button class="iconBtn" id="discordFormX" type="button" aria-label="Cerrar">✕</button>
+    </div>
+    <form id="discordForm" class="discordForm">
+      <input type="hidden" id="discordFormType" />
+      <div class="grid2 discordGrid">
+        <div>
+          <label class="label" for="discordFormName">Nombre</label>
+          <input id="discordFormName" class="input" type="text" maxlength="50" placeholder="Tu nombre" required />
+        </div>
+        <div>
+          <label class="label" for="discordFormContact">Contacto</label>
+          <input id="discordFormContact" class="input" type="text" maxlength="80" placeholder="Discord, correo, etc. (opcional)" />
+        </div>
+      </div>
+      <div>
+        <label class="label" for="discordFormSubject">Asunto</label>
+        <input id="discordFormSubject" class="input" type="text" maxlength="90" placeholder="Título breve" required />
+      </div>
+      <div>
+        <label class="label" for="discordFormMessage">Mensaje</label>
+        <textarea id="discordFormMessage" class="input" rows="5" maxlength="1800" placeholder="Escribe aquí los detalles" required></textarea>
+      </div>
+      <div class="discordFormFoot">
+        <div id="discordFormHint" class="muted">Canal: —</div>
+        <div class="row compact">
+          <button id="discordFormCancel" type="button" class="btn ghost">Cancelar</button>
+          <button id="discordFormSend" type="submit" class="btn primary">Enviar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
 <button id="installFab" class="installFab" hidden aria-label="Instalar app">⬇️ Instalar</button>
 
 <!-- Install Banner -->
