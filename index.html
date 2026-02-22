@@ -158,17 +158,22 @@
   <div id="authGate" class="gate">
     <div class="gateCard">
       <div class="gateBrand">
-        <div class="logoMark"></div>
+        <img src="icons/mi-logo.png" alt="Logo TRX" class="logoImg" />
         <div>
           <h1>TRX Panel</h1>
           <p>Acceso</p>
         </div>
       </div>
 
-      <form id="loginForm" class="gateForm">
+      <form id="loginForm" class="gateForm" data-mode="login">
+        <div class="field" id="regNameField" style="display:none">
+          <label class="lbl">Nombre de usuario</label>
+          <input id="regName" type="text" autocomplete="nickname" placeholder="Tu nombre" maxlength="40" />
+        </div>
+
         <div class="field">
-          <label class="lbl">Usuario</label>
-          <input id="loginUser" type="text" autocomplete="username" placeholder="admin / user" required />
+          <label class="lbl">Correo</label>
+          <input id="loginEmail" type="email" autocomplete="email" placeholder="tuemail@correo.com" required />
         </div>
 
         <div class="field">
@@ -184,12 +189,16 @@
           <span class="spinner" aria-hidden="true"></span>
         </button>
 
+        <button id="authModeToggle" class="btn ghost" type="button">Crear cuenta</button>
+
+        <div id="authHint" class="authHint">Inicia sesión con tu correo (no con nombre de usuario).</div>
+
         <div id="loginErr" class="err" aria-live="polite"></div>
       </form>
 
       <div class="gateFoot">
-        <span class="chip">admin</span>
-        <span class="chip">user</span>
+        <span class="chip" id="authModeChip">Login</span>
+        <span class="chip">Supabase Auth</span>
       </div>
     </div>
   </div>
@@ -199,9 +208,9 @@
     <aside class="sidebar" id="sidebar">
       <div class="sbTop">
         <div class="sbBrand">
-          <div class="logoMark small"></div>
+          <img src="icons/mi-logo.png" alt="Logo TRX" class="logoImg small" />
           <div class="sbTitle">
-            <div class="name">TRX Panel</div>
+            <div class="name">TRX</div>
             <div class="sub" id="who"></div>
           </div>
         </div>
@@ -219,10 +228,10 @@
           <button class="tab" data-tab="timer" role="tab" aria-selected="false">
             <span class="ic">⏱</span><span>Temporizador</span>
           </button>
-<button class="tab" data-tab="notes" role="tab" aria-selected="false" data-requires-role="admin">
+<button class="tab" data-tab="notes" role="tab" aria-selected="false">
             <span class="ic">✎</span><span>Notas</span>
           </button>
-          <button class="tab" data-tab="stats" role="tab" aria-selected="false" data-requires-role="admin">
+          <button class="tab" data-tab="stats" role="tab" aria-selected="false">
             <span class="ic">▦</span><span>Stats</span>
           </button>
         </nav>
@@ -645,6 +654,7 @@
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
 <!-- Install FAB (Mobile) -->
 <!-- Discord forms modal -->
