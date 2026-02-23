@@ -723,6 +723,7 @@ input:focus, select:focus, textarea:focus{
 
 /* Charts */
 canvas{
+  display:block;
   width:100%;
   border:1px solid var(--stroke);
   border-radius:16px;
@@ -1688,18 +1689,3 @@ body.light .note{
 
 
 .authHint{font-size:.85rem; color:var(--muted); margin-top:.15rem; line-height:1.35}
-
-.logoImg{
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  object-fit: contain;
-  display: block;
-  background: transparent;
-}
-
-.logoImg.small{
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-}
