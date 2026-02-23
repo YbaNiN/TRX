@@ -22,10 +22,10 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 // Discord webhooks por canal (pon aquí tus URLs reales)
 const DISCORD_WEBHOOKS = {
-  peticiones: "",
-  reportes: "",
-  sugerencias: "",
-  contacto: "",
+  peticiones: "https://discord.com/api/webhooks/1475201722598035466/TiovwsMXoldKuituNh48fn-Mn5QkjzjXe1Rl6wCERr5NHWwFWe5BpU86m5GHE-XohJrY",
+  reportes: "https://discord.com/api/webhooks/1475203494288953467/ZYY0YXTzNtRMwU-hIzVgYLOIXjZU994f3A7kabgWsRGqFEHAJ92Q8bx-MTrj34IhrL2A",
+  sugerencias: "https://discord.com/api/webhooks/1475203356472381592/wHB4VJTFF8tSl_LcriW35K8w7sBwC41vFEQ4VsBg82zcuk6nlNY1DJ9kurP5gZGKPQwY",
+  contacto: "https://discord.com/api/webhooks/1475203570826481806/LDIqUrTbaxPYFiNky1Jax58oFhhOvQWEwrJvm4kwVAgiF0IHtD9_oabiIcNFA-mBu6hS",
 };
 const DISCORD_CHANNEL_LABELS = {
   peticiones: "Peticiones",
