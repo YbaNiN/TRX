@@ -336,95 +336,125 @@
       <section class="panel" id="tasks" role="tabpanel">
         <div class="card">
           <div class="cardHead">
-            <h2>Tareas</h2>
-            <div class="row compact">
-              <input id="searchInput" type="text" placeholder="Buscar..." />
-              <select id="filterSelect" aria-label="Filtrar por estado">
-                <option value="all" selected>Todas</option>
-                <option value="todo">Pendientes</option>
-                <option value="doing">En curso</option>
-                <option value="done">Hechas</option>
-              </select>
-              <select id="viewSelect" aria-label="Vista">
-                <option value="list" selected>Lista</option>
-                <option value="kanban">Kanban</option>
-              </select>
+            <div class="row spread">
+              <h2 style="margin:0">Tareas</h2>
+              <div class="row compact onlyMobile">
+                <button id="btnTaskNew" type="button" class="btn primary sm">+ Nueva</button>
+                <button id="btnTaskFilters" type="button" class="btn ghost sm">Filtrar</button>
+              </div>
+            </div>
+
+            <!-- Controles (desktop inline, móvil como modal) -->
+            <div id="taskControlsPanel" class="taskControlsPanel">
+              <div class="row spread onlyMobile" style="margin-bottom:8px">
+                <div class="h3" style="margin:0">Filtros</div>
+                <button id="btnTaskFiltersClose" type="button" class="btn ghost sm">✕</button>
+              </div>
+              <div class="row compact">
+                <input id="searchInput" type="text" placeholder="Buscar..." />
+                <select id="filterSelect" aria-label="Filtrar por estado">
+                  <option value="all" selected>Todas</option>
+                  <option value="todo">Pendientes</option>
+                  <option value="doing">En curso</option>
+                  <option value="done">Hechas</option>
+                </select>
+                <select id="viewSelect" aria-label="Vista">
+                  <option value="list" selected>Lista</option>
+                  <option value="kanban">Kanban</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <form id="taskForm" class="row">
-            <select id="taskType" aria-label="Categoría">
-              <option value="task" selected>Tarea</option>
-              <option value="event">Evento</option>
-            </select>
-            <input id="taskInput" type="text" placeholder="Nombre de la tarea/evento..." autocomplete="off" />
+          <div class="taskLayout">
+            <!-- Crear (desktop: panel lateral | móvil: bottom sheet) -->
+            <div id="taskCreatePanel" class="taskCreatePanel" aria-label="Crear tarea">
+              <div class="row spread taskCreateHead">
+                <div class="h3" style="margin:0">Nueva tarea</div>
+                <button id="btnTaskNewClose" type="button" class="btn ghost sm onlyMobile">✕</button>
+              </div>
 
-            <div class="row2 inline2">
-              <div class="field">
-                <label class="lbl srOnly" for="taskStart">Fecha inicio</label>
-                <input id="taskStart" type="date" aria-label="Fecha de inicio" />
-              </div>
-              <div class="field">
-                <label class="lbl srOnly" for="taskStartTime">Hora inicio</label>
-                <input id="taskStartTime" type="time" aria-label="Hora de inicio" />
-              </div>
+              <form id="taskForm" class="row">
+                <select id="taskType" aria-label="Categoría">
+                  <option value="task" selected>Tarea</option>
+                  <option value="event">Evento</option>
+                </select>
+                <input id="taskInput" type="text" placeholder="Nombre de la tarea/evento..." autocomplete="off" />
+
+                <div class="row2 inline2">
+                  <div class="field">
+                    <label class="lbl srOnly" for="taskStart">Fecha inicio</label>
+                    <input id="taskStart" type="date" aria-label="Fecha de inicio" />
+                  </div>
+                  <div class="field">
+                    <label class="lbl srOnly" for="taskStartTime">Hora inicio</label>
+                    <input id="taskStartTime" type="time" aria-label="Hora de inicio" />
+                  </div>
+                </div>
+
+                <div class="row2 inline2">
+                  <div class="field">
+                    <label class="lbl srOnly" for="taskEnd">Fecha fin</label>
+                    <input id="taskEnd" type="date" aria-label="Fecha de finalización" />
+                  </div>
+                  <div class="field">
+                    <label class="lbl srOnly" for="taskEndTime">Hora fin</label>
+                    <input id="taskEndTime" type="time" aria-label="Hora de finalización" />
+                  </div>
+                </div>
+
+                <input id="taskTags" type="text" placeholder="Tags: trabajo, música..." />
+                <select id="taskPriority" aria-label="Prioridad">
+                  <option value="low">Baja</option>
+                  <option value="med" selected>Media</option>
+                  <option value="high">Alta</option>
+                </select>
+
+                <div class="colorBox">
+                  <input id="taskColor" class="colorInput" type="color" value="#3b82f6" aria-label="Color del borde" title="Color del borde" />
+                  <button id="saveFavColor" class="btn ghost sm" type="button" title="Guardar color favorito">★</button>
+                </div>
+                <div id="favColors" class="favColors" aria-label="Colores favoritos"></div>
+
+                <button class="btn primary" type="submit">Añadir</button>
+              </form>
             </div>
 
-            <div class="row2 inline2">
-              <div class="field">
-                <label class="lbl srOnly" for="taskEnd">Fecha fin</label>
-                <input id="taskEnd" type="date" aria-label="Fecha de finalización" />
+            <!-- Ver / gestionar -->
+            <div class="taskMainPanel">
+              <!-- Chips -->
+              <div class="chipRow">
+                <div class="chipLabel">Tags:</div>
+                <div id="tagChips" class="chipWrap"></div>
+                <button id="btnClearTag" class="btn ghost sm" type="button">Quitar filtro</button>
               </div>
-              <div class="field">
-                <label class="lbl srOnly" for="taskEndTime">Hora fin</label>
-                <input id="taskEndTime" type="time" aria-label="Hora de finalización" />
+
+              <!-- Skeleton -->
+              <div id="tasksSkeleton" class="skeletonWrap" aria-hidden="true"></div>
+
+              <!-- List View -->
+              <ul id="taskList" class="list"></ul>
+
+              <!-- Kanban View -->
+              <div id="kanban" class="kanban" aria-label="Tablero Kanban">
+                <div class="kCol" data-status="todo">
+                  <div class="kHead"><span>Pendiente</span><span class="kCount" id="kTodo">0</span></div>
+                  <div class="kBody" id="kTodoBody"></div>
+                </div>
+                <div class="kCol" data-status="doing">
+                  <div class="kHead"><span>En curso</span><span class="kCount" id="kDoing">0</span></div>
+                  <div class="kBody" id="kDoingBody"></div>
+                </div>
+                <div class="kCol" data-status="done">
+                  <div class="kHead"><span>Hecho</span><span class="kCount" id="kDone">0</span></div>
+                  <div class="kBody" id="kDoneBody"></div>
+                </div>
               </div>
             </div>
-
-            <input id="taskTags" type="text" placeholder="Tags: trabajo, música..." />
-            <select id="taskPriority" aria-label="Prioridad">
-              <option value="low">Baja</option>
-              <option value="med" selected>Media</option>
-              <option value="high">Alta</option>
-            </select>
-
-            <div class="colorBox">
-              <input id="taskColor" class="colorInput" type="color" value="#3b82f6" aria-label="Color del borde" title="Color del borde" />
-              <button id="saveFavColor" class="btn ghost sm" type="button" title="Guardar color favorito">★</button>
-            </div>
-            <div id="favColors" class="favColors" aria-label="Colores favoritos"></div>
-
-            <button class="btn primary" type="submit">Añadir</button>
-          </form>
-
-          <!-- Chips -->
-          <div class="chipRow">
-            <div class="chipLabel">Tags:</div>
-            <div id="tagChips" class="chipWrap"></div>
-            <button id="btnClearTag" class="btn ghost sm" type="button">Quitar filtro</button>
           </div>
 
-          <!-- Skeleton -->
-          <div id="tasksSkeleton" class="skeletonWrap" aria-hidden="true"></div>
-
-          <!-- List View -->
-          <ul id="taskList" class="list"></ul>
-
-          <!-- Kanban View -->
-          <div id="kanban" class="kanban" aria-label="Tablero Kanban">
-            <div class="kCol" data-status="todo">
-              <div class="kHead"><span>Pendiente</span><span class="kCount" id="kTodo">0</span></div>
-              <div class="kBody" id="kTodoBody"></div>
-            </div>
-            <div class="kCol" data-status="doing">
-              <div class="kHead"><span>En curso</span><span class="kCount" id="kDoing">0</span></div>
-              <div class="kBody" id="kDoingBody"></div>
-            </div>
-            <div class="kCol" data-status="done">
-              <div class="kHead"><span>Hecho</span><span class="kCount" id="kDone">0</span></div>
-              <div class="kBody" id="kDoneBody"></div>
-            </div>
-          </div>
+          <!-- Overlay para sheets/modales -->
+          <div id="tasksOverlay" class="tasksOverlay" hidden></div>
         </div>
       </section>
 
