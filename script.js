@@ -468,6 +468,120 @@ function closeEdit() {
   m.setAttribute("aria-hidden", "true");
 }
 
+
+/* ===================== UI: Day Modal (Calendario) ===================== */
+let dayModalISO = null;
+
+function tasksForISODate(iso){
+  const d = parseISODate(iso);
+  if (!d) return [];
+  const day0 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0);
+  const out = [];
+
+  for (const t of state.tasks){
+    const s = parseISODate(t.startDate);
+    const e = parseISODate(t.endDate);
+    if (!s || !e) continue;
+
+    const s0 = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0,0,0,0);
+    const e0 = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 0,0,0,0);
+
+    if (day0 >= s0 && day0 <= e0){
+      const starts = day0.getTime() === s0.getTime();
+      const ends = day0.getTime() === e0.getTime();
+      const point = starts ? "start" : (ends ? "end" : "mid");
+      out.push({ task: t, point });
+    }
+  }
+
+  const pr = { high:0, med:1, low:2 };
+  out.sort((a,b)=>
+    (a.task.category==="event"?0:1)-(b.task.category==="event"?0:1) ||
+    (pr[a.task.priority]??9)-(pr[b.task.priority]??9) ||
+    (a.task.startTime||"").localeCompare(b.task.startTime||"") ||
+    (a.task.createdAt-b.task.createdAt)
+  );
+  return out;
+}
+
+function openDayModal(iso){
+  const m = $("#dayModal");
+  if (!m) return;
+  dayModalISO = iso;
+
+  const d = parseISODate(iso);
+  const title = d ? d.toLocaleDateString(undefined, { weekday:"long", year:"numeric", month:"long", day:"numeric" }) : iso;
+  $("#dayModalTitle").textContent = title;
+
+  const list = $("#dayModalList");
+  const items = tasksForISODate(iso);
+
+  if (!items.length){
+    list.innerHTML = `<div class="muted">No hay tareas/eventos este día.</div>`;
+  } else {
+    list.innerHTML = items.map(({task:t, point})=>{
+      const badge = t.status;
+      const typeTxt = t.category === "event" ? "Evento" : "Tarea";
+      const span = (t.startDate !== t.endDate) ? `· Rango ${fmtISODate(t.startDate)} → ${fmtISODate(t.endDate)}` : "";
+      const when = (t.startTime || t.endTime)
+        ? `· ${t.startTime?fmtTime(t.startTime):""}${(t.startTime&&t.endTime)?"→":""}${t.endTime?fmtTime(t.endTime):""}`
+        : "";
+      const flag = point === "start" ? "Comienza" : (point === "end" ? "Termina" : "En curso");
+      const style = t.color ? ` style="border-left:4px solid ${t.color}; padding-left:10px"` : "";
+      return `
+        <div class="dayItem" data-id="${escapeHtml(t.id)}"${style}>
+          <div class="dayItemTop">
+            <div>
+              <div class="dayItemTitle">${escapeHtml(t.title)}</div>
+              <div class="dayItemMeta">${escapeHtml(typeTxt)} · ${escapeHtml(flag)} ${span} ${when}</div>
+            </div>
+            <div class="dayBadge ${escapeHtml(badge)}">${escapeHtml(badge)}</div>
+          </div>
+        </div>`;
+    }).join("");
+
+    // bind click once via delegation
+    if (!list.dataset.bound){
+      list.dataset.bound = "1";
+      list.addEventListener("click", (e)=>{
+        const item = e.target.closest(".dayItem");
+        if (!item) return;
+        const id = item.dataset.id;
+        const t = state.tasks.find(x=>x.id===id);
+        if (t){
+          closeDayModal();
+          openEdit(t);
+        }
+      });
+    }
+  }
+
+  m.classList.add("show");
+  m.setAttribute("aria-hidden", "false");
+}
+
+function closeDayModal(){
+  const m = $("#dayModal");
+  if (!m) return;
+  dayModalISO = null;
+  m.classList.remove("show");
+  m.setAttribute("aria-hidden", "true");
+}
+
+function bindDayModal(){
+  const m = $("#dayModal");
+  if (!m || m.dataset.bound) return;
+  m.dataset.bound = "1";
+  $("#dayModalX")?.addEventListener("click", closeDayModal);
+  $("#dayModalClose")?.addEventListener("click", closeDayModal);
+  m.addEventListener("click", (e)=>{
+    if (e.target?.closest('[data-close-day="1"]')) closeDayModal();
+  });
+  document.addEventListener("keydown", (e)=>{
+    if (e.key === "Escape" && m.classList.contains("show")) closeDayModal();
+  });
+}
+
 /* ===================== UI: Command Palette ===================== */
 let cmdkIndex = 0;
 let cmdkItems = [];
@@ -1699,7 +1813,11 @@ card.setAttribute("draggable", "true");
   $("#kDoing").textContent = counts.doing;
   $("#kDone").textContent = counts.done;
 
-  $$(".kBody").forEach(body => {
+  $$('.kBody').forEach(body => {
+    // Evita acumular listeners al re-renderizar
+    if (body.dataset.dndBound === "1") return;
+    body.dataset.dndBound = "1";
+
     body.addEventListener("dragover", (e) => e.preventDefault());
     body.addEventListener("drop", (e) => {
       e.preventDefault();
@@ -2326,6 +2444,8 @@ function renderCalendar(){
     const isToday = cellDate.getFullYear()===now.getFullYear() && cellDate.getMonth()===now.getMonth() && cellDate.getDate()===now.getDate();
 
     const all = tasksForDay(cellDate);
+
+    const iso = toISODate(cellDate);
     const items = all.slice(0,4);
     const more = Math.max(0, all.length - items.length);
 
@@ -2345,7 +2465,7 @@ function renderCalendar(){
     }).join("");
 
     cells.push(`
-      <div class="calCell ${dim?"dim":""} ${isToday?"today":""}">
+      <div class="calCell ${dim?"dim":""} ${isToday?"today":""}" data-date="${iso}">
         <div class="day">${cellDate.getDate()}</div>
         <div class="calItems">
           ${chips}
@@ -2534,6 +2654,18 @@ function bindUx() {
     prev.addEventListener("click", () => { state.calOffset = (state.calOffset||0) - 1; renderCalendar(); });
     next.addEventListener("click", () => { state.calOffset = (state.calOffset||0) + 1; renderCalendar(); });
     today.addEventListener("click", () => { state.calOffset = 0; renderCalendar(); });
+  }
+
+  // click en un día para ver sus tareas (móvil/desktop)
+  const calGrid = $("#calendarGrid");
+  if (calGrid && !calGrid.dataset.dayClickBound){
+    calGrid.dataset.dayClickBound = "1";
+    calGrid.addEventListener("click", (e)=>{
+      const cell = e.target.closest(".calCell");
+      if (!cell || !calGrid.contains(cell)) return;
+      const iso = cell.dataset.date;
+      if (iso) openDayModal(iso);
+    });
   }
   // temporizador
   bindTimer();
@@ -2780,37 +2912,16 @@ function canShowInstallUI(){
 }
 
 function showInstallUI({ canInstall, showHelp }){
-  const banner = document.getElementById("installBanner");
-  const fab = document.getElementById("installFab");
-
-  if (!canShowInstallUI()) {
-    if (banner) banner.hidden = true;
-    if (fab) fab.hidden = true;
-    return;
-  }
-
-  // Prefer banner to avoid duplicate CTAs; only fall back to FAB if banner is missing
-  if (!banner) {
-    if (fab) fab.hidden = false;
-    return;
-  }
-  if (fab) fab.hidden = true;
-
-  const btnInstall = $("#btnInstallApp");
-  const btnHelp = $("#btnInstallHelp");
-
-  if (btnInstall) btnInstall.style.display = canInstall ? "" : "none";
-  if (btnHelp) btnHelp.style.display = showHelp ? "" : "none";
-
-  banner.hidden = false;
+  // UI automática deshabilitada: ahora está en la sección APP
+  return;
 }
+
 
 function hideInstallUI(){
-  const b = document.getElementById("installBanner");
-  const f = document.getElementById("installFab");
-  if (b){ b.hidden = true; b.style.display = "none"; }
-  if (f){ f.hidden = true; f.style.display = "none"; }
+  // UI automática deshabilitada: ahora está en la sección APP
+  return;
 }
+
 
 function dismissInstallUI(){
   setInstallState({ dismissedAt: new Date().toISOString() });
@@ -2936,7 +3047,6 @@ function initInstallUX(){
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
-    showInstallUI({ canInstall:true, showHelp:false });
   });
 
   // Mark installed
@@ -2949,30 +3059,10 @@ function initInstallUX(){
 }
 
 function scheduleInstallUIAfterLogin(){
-  // Show after the user is inside the app (session active)
-  if (!state.session || !state.session.u) return;
-
-  // Only on mobile width; banner is okay but we avoid spamming on desktop
-  const mobile = window.matchMedia ? window.matchMedia("(max-width: 899px)").matches : true;
-  if (!mobile) return;
-
-  if (!canShowInstallUI()) return;
-
-  // Delay a bit so it's not in-your-face
-  setTimeout(() => {
-    if (!canShowInstallUI()) return;
-
-    // If we already have prompt, show install button; otherwise show help on iOS, or keep FAB
-    if (isIOS()){
-      showInstallUI({ canInstall:false, showHelp:true });
-    } else if (deferredInstallPrompt){
-      showInstallUI({ canInstall:true, showHelp:false });
-    } else {
-      // No prompt yet: show banner with a gentle help button (works in many Android browsers)
-      showInstallUI({ canInstall:false, showHelp:true });
-    }
-  }, 6500);
+  // UI automática deshabilitada: ahora está en la sección APP
+  return;
 }
+
 
 async function main() {
   load();
@@ -2985,6 +3075,7 @@ async function main() {
 
   bindModal();
   bindEditModal();
+  bindDayModal();
   bindCmdk();
   bindUx();
   bindDiscordForms();
