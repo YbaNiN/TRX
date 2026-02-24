@@ -2726,6 +2726,46 @@ function bindUx() {
   });
 
   // tasks controls
+
+  // tareas (móvil): crear como bottom-sheet + filtros en modal
+  const isMobile = () => window.matchMedia("(max-width: 720px)").matches;
+  const tasksOverlay = $("#tasksOverlay");
+  const taskCreatePanel = $("#taskCreatePanel");
+  const taskControlsPanel = $("#taskControlsPanel");
+
+  const closeTaskPanels = () => {
+    if (taskCreatePanel) taskCreatePanel.classList.remove("open");
+    if (taskControlsPanel) taskControlsPanel.classList.remove("open");
+    if (tasksOverlay) tasksOverlay.hidden = true;
+  };
+  const openCreate = () => {
+    closeTaskPanels();
+    if (!isMobile()) return; // en desktop siempre visible
+    if (taskCreatePanel) taskCreatePanel.classList.add("open");
+    if (tasksOverlay) tasksOverlay.hidden = false;
+  };
+  const openFilters = () => {
+    closeTaskPanels();
+    if (!isMobile()) return; // en desktop son inline
+    if (taskControlsPanel) taskControlsPanel.classList.add("open");
+    if (tasksOverlay) tasksOverlay.hidden = false;
+    // focus al buscador si existe
+    setTimeout(() => { try { $("#searchInput")?.focus(); } catch(_){} }, 60);
+  };
+
+  if ($("#btnTaskNew")) $("#btnTaskNew").addEventListener("click", openCreate);
+  if ($("#btnTaskNewClose")) $("#btnTaskNewClose").addEventListener("click", closeTaskPanels);
+  if ($("#btnTaskFilters")) $("#btnTaskFilters").addEventListener("click", openFilters);
+  if ($("#btnTaskFiltersClose")) $("#btnTaskFiltersClose").addEventListener("click", closeTaskPanels);
+  if (tasksOverlay) tasksOverlay.addEventListener("click", closeTaskPanels);
+
+  // al cambiar de pestaña, cerramos overlays de tareas
+  window.addEventListener("keydown", (e)=>{ if(e.key==="Escape") closeTaskPanels(); });
+  window.addEventListener("resize", ()=>{
+    // si salimos de móvil, quitamos estados open y overlay
+    if (!isMobile()) closeTaskPanels();
+  });
+
   $("#taskForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const type = $("#taskType").value || "task";
@@ -2754,6 +2794,9 @@ function bindUx() {
     if ($("#taskStartTime")) $("#taskStartTime").value = "";
     if ($("#taskEndTime")) $("#taskEndTime").value = "";
     $("#taskType").value = "task";
+
+    // en móvil, cerramos el sheet al crear
+    try { if (typeof isMobile === "function" && isMobile()) closeTaskPanels(); } catch(_e){}
   });
 
   // favorite colors
