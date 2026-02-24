@@ -1743,34 +1743,50 @@ img.logoImg{
   .installCardInline .installBtn{ width:100%; }
 }
 
-/* ===================== Calendar: better mobile chips ===================== */
+/* ===================== Calendar: mobile = dots only ===================== */
 @media (max-width: 520px){
-  /* En móvil, el calendario de mes en 7 columnas se queda muy estrecho.
-     Permitimos scroll horizontal para que las columnas tengan ancho suficiente
-     y el nombre de las tareas no se quede en 2 letras. */
-  .calendar{
-    overflow-x:auto;
-    overflow-y:hidden;
-  }
-  .calRow{
-    min-width: 820px;
-  }
-  .calCell{ min-height: 96px; }
+  /* En móvil, en una vista mensual 7 columnas el texto se recorta sí o sí.
+     Aquí mostramos SOLO puntos (con borde de color) en vez de títulos. */
 
+  .calendar{ overflow: hidden; }
+  .calCell{ min-height: 92px; }
+
+  /* En móvil, los items van en fila y se envuelven */
+  .calItems{
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  /* El chip se vuelve “invisible”: solo deja el punto */
   .calChip{
-    align-items:flex-start;
+    padding: 2px;
+    border: none;
+    background: transparent;
+    border-left: none;
+    border-radius: 999px;
   }
-  .calChip .t{
-    white-space:normal;
-    overflow:visible;
-    text-overflow:clip;
-    display:-webkit-box;
-    -webkit-line-clamp:3;
-    -webkit-box-orient:vertical;
-    line-height:1.15;
-    word-break: break-word;
+
+  /* Ocultamos el texto, dejamos solo el punto */
+  .calChip .t{ display:none; }
+
+  /* Punto con borde (ring) */
+  .calChip .k{
+    width: 11px;
+    height: 11px;
+    background: transparent;
+    border: 2px solid rgba(180,190,210,.85);
   }
+  .calChip.todo .k{ border-color: rgba(180,190,210,.85); }
+  .calChip.doing .k{ border-color: rgba(255,200,80,.90); }
+  .calChip.done .k{ border-color: rgba(102,227,168,.90); }
+
+  /* Si la tarea tiene color personalizado, el borde del punto usa ese color */
+  .calChip.hasColor .k{ border-color: var(--task-border); }
+
   .calItems small{
+    width: 100%;
     display:block;
     margin-top:2px;
   }
