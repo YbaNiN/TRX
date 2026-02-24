@@ -190,6 +190,9 @@ body{
   position:relative;
   width:min(560px, calc(100vw - 28px));
   margin: 12vh auto 0;
+  max-height: 86vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius:18px;
   background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
   border:1px solid var(--stroke);
@@ -1742,6 +1745,18 @@ img.logoImg{
 
 /* ===================== Calendar: better mobile chips ===================== */
 @media (max-width: 520px){
+  /* En móvil, el calendario de mes en 7 columnas se queda muy estrecho.
+     Permitimos scroll horizontal para que las columnas tengan ancho suficiente
+     y el nombre de las tareas no se quede en 2 letras. */
+  .calendar{
+    overflow-x:auto;
+    overflow-y:hidden;
+  }
+  .calRow{
+    min-width: 820px;
+  }
+  .calCell{ min-height: 96px; }
+
   .calChip{
     align-items:flex-start;
   }
@@ -1750,14 +1765,25 @@ img.logoImg{
     overflow:visible;
     text-overflow:clip;
     display:-webkit-box;
-    -webkit-line-clamp:2;
+    -webkit-line-clamp:3;
     -webkit-box-orient:vertical;
     line-height:1.15;
+    word-break: break-word;
   }
   .calItems small{
     display:block;
     margin-top:2px;
   }
+}
+
+/* Desactivar UI antigua de instalación (banner flotante / fab). Ahora está en la sección APP */
+.installBanner,
+.installFab{
+  display:none !important;
+}
+
+@media (max-width: 560px){
+  .modalCard, .cmdkCard{ margin: 6vh auto 0; max-height: 90vh; }
 }
 
 /* ===================== Day modal list ===================== */
