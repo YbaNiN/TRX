@@ -1869,6 +1869,21 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
 
 
 /* --- Opción B (Tareas): crear separado + filtros en modal (móvil) --- */
+
+/* Formulario de creación: siempre en columna (evita que se aplaste en desktop) */
+#taskCreatePanel #taskForm{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+#taskCreatePanel #taskForm .row2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+@media (max-width: 720px){
+  #taskCreatePanel #taskForm .row2{grid-template-columns: 1fr 1fr;}
+}
 .onlyMobile{display:none !important;}
 @media (max-width: 720px){
   .onlyMobile{display:flex !important;}
@@ -1899,18 +1914,43 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
   #taskCreatePanel{
     display:none;
     position:fixed;
-    left:10px;
-    right:10px;
-    bottom:10px;
-    max-height: 85vh;
+    left:0;
+    right:0;
+    bottom:0;
+    max-height: 78vh;
     overflow:auto;
     -webkit-overflow-scrolling: touch;
     transform: translateY(120%);
     transition: transform .18s ease;
     z-index: 950;
     box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    border-radius: 18px 18px 0 0;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
   #taskCreatePanel.open{display:block; transform: translateY(0);}
+
+  /* header del sheet siempre visible */
+  #taskCreatePanel .taskCreateHead{
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--card);
+    margin: -12px -12px 10px -12px;
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    border-radius: 18px 18px 0 0;
+  }
+
+  /* asa visual */
+  #taskCreatePanel .taskCreateHead::before{
+    content: "";
+    display:block;
+    width: 46px;
+    height: 5px;
+    border-radius: 999px;
+    margin: 2px auto 10px auto;
+    background: rgba(255,255,255,.14);
+  }
 
   /* filtros en modal */
   #taskControlsPanel{
