@@ -225,6 +225,9 @@
                     <button class="tab" data-tab="calendar" role="tab" aria-selected="false">
             <span class="ic">📅</span><span>Calendario</span>
           </button>
+          <button class="tab" data-tab="agenda" role="tab" aria-selected="false">
+            <span class="ic">🗓️</span><span>Agenda</span>
+          </button>
           <button class="tab" data-tab="timer" role="tab" aria-selected="false">
             <span class="ic">⏱</span><span>Temporizador</span>
           </button>
@@ -451,6 +454,28 @@
           </div>
 
           <div id="calendarGrid" class="calendar"></div>
+        </div>
+      </section>
+
+      <!-- AGENDA -->
+      <section class="panel" id="agenda" role="tabpanel">
+        <div class="card">
+          <div class="row spread" style="gap:12px; align-items:flex-end; flex-wrap:wrap">
+            <div>
+              <div class="h2">Agenda</div>
+              <div class="muted">Lista por fechas (ideal para móvil).</div>
+            </div>
+
+            <div class="row" style="gap:8px; flex-wrap:wrap; justify-content:flex-end">
+              <button class="btn ghost" id="agToday" type="button">Hoy</button>
+              <button class="btn ghost" id="agTomorrow" type="button">Mañana</button>
+              <button class="btn ghost" id="agWeek" type="button">7 días</button>
+              <button class="btn ghost" id="agMonth" type="button">30 días</button>
+              <button class="btn ghost" id="agAll" type="button">Todo</button>
+            </div>
+          </div>
+
+          <div id="agendaList" class="agendaList" aria-label="Agenda"></div>
         </div>
       </section>
 
