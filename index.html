@@ -234,7 +234,11 @@
           <button class="tab" data-tab="stats" role="tab" aria-selected="false">
             <span class="ic">▦</span><span>Stats</span>
           </button>
-        </nav>
+        
+          <button class="tab" data-tab="app" role="tab" aria-selected="false">
+            <span class="ic">📲</span><span>APP</span>
+          </button>
+</nav>
       </div>
 
       <div class="sbBottom">
@@ -651,8 +655,62 @@
         </div>
       </section>
 
+    
+
+      <!-- APP / INSTALACIÓN -->
+      <section class="panel" id="app" role="tabpanel">
+        <div class="card">
+          <div class="cardHead">
+            <h2>APP</h2>
+            <div class="muted" style="font-size:12px">Instala TRX Panel en tu móvil para abrirlo a pantalla completa y usarlo sin conexión.</div>
+          </div>
+
+          <div class="installCardInline">
+            <div class="installLeft">
+              <img class="installIcon" src="./icons/icon-192.png" alt="TRX icon" />
+              <div class="installText">
+                <div class="installTitle">TRX Panel</div>
+                <div class="installSub">Acceso rápido, pantalla completa y offline.</div>
+              </div>
+            </div>
+
+            <div class="installActions">
+              <button id="btnInstallApp" type="button" class="installBtn btnPrimary">Instalar</button>
+              <button id="btnInstallHelp" type="button" class="installBtn btnGhost">Cómo instalar</button>
+            </div>
+          </div>
+
+          <div class="muted" style="margin-top:10px; font-size:12px">
+            Nota: En iPhone/iPad se instala desde Safari (botón Compartir → “Añadir a pantalla de inicio”).
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
+
+  
+
+<!-- Day details modal (Calendario) -->
+<div id="dayModal" class="modal" aria-hidden="true">
+  <div class="modalBackdrop" data-close-day="1"></div>
+  <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="dayModalTitle">
+    <div class="modalHead">
+      <div>
+        <div id="dayModalTitle" class="modalTitle">Día</div>
+        <div id="dayModalSub" class="modalDesc">Tareas y eventos</div>
+      </div>
+      <button class="iconBtn" id="dayModalX" type="button" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="dayModalBody">
+      <div id="dayModalList" class="dayList"></div>
+      <div class="muted" style="font-size:12px; margin-top:10px">Tip: toca una tarjeta para editarla.</div>
+    </div>
+    <div class="modalActions">
+      <button id="dayModalClose" class="btn ghost" type="button">Cerrar</button>
+    </div>
+  </div>
+</div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
@@ -698,18 +756,6 @@
     </form>
   </div>
 </div>
-
-<button id="installFab" class="installFab" hidden aria-label="Instalar app">⬇️ Instalar</button>
-
-<!-- Install Banner -->
-<div id="installBanner" class="installBanner" hidden>
-  <div class="installCardPro">
-    <div class="installLeft">
-      <img class="installIcon" src="./icons/icon-192.png" alt="TRX icon" />
-      <div class="installText">
-        <div class="installTitle">Instala TRX Panel</div>
-        <div class="installSub">Acceso rápido, pantalla completa y funciona sin conexión.</div>
-      </div>
     </div>
 
     <div class="installActions">
