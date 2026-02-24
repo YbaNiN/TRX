@@ -1844,3 +1844,25 @@ img.logoImg{
 .dayBadge.todo{ background: rgba(180,190,210,.12); }
 .dayBadge.doing{ background: rgba(255,200,80,.14); }
 .dayBadge.done{ background: rgba(102,227,168,.14); }
+
+/* ===================== Agenda ===================== */
+.agendaList{ display:flex; flex-direction:column; gap:12px; margin-top:14px; }
+.agendaDay{ border:1px solid rgba(255,255,255,.08); border-radius:16px; overflow:hidden; }
+body.light .agendaDay{ border-color: rgba(0,0,0,.08); }
+.agendaDayHead{ padding:10px 12px; font-weight:700; text-transform:capitalize; background: rgba(255,255,255,.03); }
+body.light .agendaDayHead{ background: rgba(0,0,0,.03); }
+.agendaItems{ display:flex; flex-direction:column; }
+.agendaItem{ padding:12px; display:flex; gap:12px; align-items:flex-start; border-top:1px solid rgba(255,255,255,.06);
+  border-left: 4px solid rgba(255,255,255,.18); cursor:pointer; }
+body.light .agendaItem{ border-top-color: rgba(0,0,0,.06); border-left-color: rgba(0,0,0,.18); }
+.agendaItem:first-child{ border-top:0; }
+.agendaItem.hasColor{ border-left-color: var(--task-border); }
+.agendaItem.todo:not(.hasColor){ border-left-color: rgba(59,130,246,.8); }
+.agendaItem.doing:not(.hasColor){ border-left-color: rgba(245,158,11,.85); }
+.agendaItem.done:not(.hasColor){ border-left-color: rgba(34,197,94,.85); }
+.agendaMain{ flex:1; min-width:0; }
+.agendaTitle{ font-weight:700; line-height:1.2; word-break: break-word; }
+.agendaMeta{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; }
+.agendaTags{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+.agendaTags .tag{ font-size:12px; padding:4px 8px; border-radius:999px; background: hsla(var(--h), 80%, 55%, .16); border:1px solid hsla(var(--h), 80%, 55%, .25); }
+body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-color: hsla(var(--h), 60%, 45%, .22); }
