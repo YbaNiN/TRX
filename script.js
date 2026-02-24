@@ -187,6 +187,12 @@ function load() {
   try { state.notifs = JSON.parse(localStorage.getItem(LS.notifs) || "[]"); } catch { state.notifs = []; }
   try { state.dueNotifs = JSON.parse(localStorage.getItem(LS.dueNotifs) || "{}"); } catch { state.dueNotifs = {}; }
 
+  // Agenda range
+  try {
+    const r = localStorage.getItem("trx_agenda_range_v1");
+    if (r) state.agendaRange = r;
+  } catch {}
+
   // Timer
 try { state.timer = JSON.parse(localStorage.getItem(LS.timer) || "null") || state.timer; } catch {}
 // Normaliza timer
@@ -255,6 +261,7 @@ function save() {
   localStorage.setItem(LS.dueNotifs, JSON.stringify(state.dueNotifs || {}));
   if (state.session) localStorage.setItem(LS.session, JSON.stringify(state.session));
   localStorage.setItem("trx_view_v1", state.view);
+  if (state.agendaRange) localStorage.setItem("trx_agenda_range_v1", state.agendaRange);
   localStorage.setItem(LS.timer, JSON.stringify(state.timer || null));
 }
 
@@ -894,6 +901,9 @@ function switchTab(id) {
   }
   if (id === "timer") {
     setTimeout(() => { renderTimerUI(true); }, 20);
+  }
+  if (id === "agenda") {
+    setTimeout(() => { renderAgenda(); }, 10);
   }
 }
 
@@ -2362,6 +2372,7 @@ function renderAll(redraw = true) {
   renderTasksList();
   renderKanban();
   renderCalendar();
+  renderAgenda();
   renderNotifs();
   if (redraw) redrawChartsIfVisible();
 }
@@ -2369,6 +2380,7 @@ function renderAll(redraw = true) {
 
 /* ===================== Calendario ===================== */
 state.calOffset = 0;
+state.agendaRange = "week"; // today | tomorrow | week | month | all
 
 function monthLabel(year, monthIndex){
   const d = new Date(year, monthIndex, 1);
@@ -2485,6 +2497,135 @@ function renderCalendar(){
     <div class="calRow">${cells.slice(28,35).join("")}</div>
     <div class="calRow">${cells.slice(35,42).join("")}</div>
   `;
+}
+
+
+/* ===================== Agenda ===================== */
+function agendaRangeWindow(range){
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0,0);
+  if (range === "all") return { start: null, end: null };
+
+  let days = 6; // week
+  if (range === "today") days = 0;
+  else if (range === "tomorrow") {
+    const s = new Date(start.getTime() + 24*60*60*1000);
+    return { start: s, end: new Date(s.getTime() + 24*60*60*1000) };
+  }
+  else if (range === "month") days = 29;
+
+  const end = new Date(start.getTime() + (days+1) * 24*60*60*1000);
+  return { start, end };
+}
+
+function taskPrimaryISO(t){
+  return t.startDate || t.endDate || "";
+}
+
+function taskSortKey(t){
+  const iso = taskPrimaryISO(t);
+  const time = (t.startTime || t.endTime || "");
+  return { iso, time };
+}
+
+function renderAgenda(){
+  const host = $("#agendaList");
+  if (!host) return;
+
+  const range = state.agendaRange || "week";
+  const { start, end } = agendaRangeWindow(range);
+
+  const dated = [];
+  const undated = [];
+
+  for (const t of state.tasks){
+    const iso = taskPrimaryISO(t);
+    if (!iso){ undated.push(t); continue; }
+    const d = parseISODate(iso);
+    if (!d){ undated.push(t); continue; }
+    if (start && end){
+      const ts = d.getTime();
+      if (ts < start.getTime() || ts >= end.getTime()) continue;
+    }
+    dated.push(t);
+  }
+
+  // sort
+  const pr = { high:0, med:1, low:2 };
+  dated.sort((a,b)=>{
+    const ka = taskSortKey(a), kb = taskSortKey(b);
+    if (ka.iso !== kb.iso) return ka.iso.localeCompare(kb.iso);
+    if ((ka.time||"") !== (kb.time||"")) return (ka.time||"99:99").localeCompare(kb.time||"99:99");
+    return (a.category==="event"?0:1)-(b.category==="event"?0:1) || (pr[a.priority]??9)-(pr[b.priority]??9) || (a.createdAt-b.createdAt);
+  });
+  undated.sort((a,b)=> (a.category==="event"?0:1)-(b.category==="event"?0:1) || (pr[a.priority]??9)-(pr[b.priority]??9) || (a.createdAt-b.createdAt));
+
+  // group
+  const groups = new Map();
+  for (const t of dated){
+    const iso = taskPrimaryISO(t);
+    if (!groups.has(iso)) groups.set(iso, []);
+    groups.get(iso).push(t);
+  }
+
+  const groupKeys = [...groups.keys()].sort((a,b)=>a.localeCompare(b));
+  const parts = [];
+
+  if (groupKeys.length === 0 && undated.length === 0){
+    host.innerHTML = `<div class="empty">No hay tareas en este rango.</div>`;
+    return;
+  }
+
+  for (const iso of groupKeys){
+    const day = parseISODate(iso);
+    const title = day ? day.toLocaleDateString(undefined, { weekday:"long", day:"2-digit", month:"long" }) : iso;
+    parts.push(`<div class="agendaDay">
+      <div class="agendaDayHead">${escapeHtml(title)}</div>
+      <div class="agendaItems">${groups.get(iso).map(t=>agendaItemHtml(t)).join("")}</div>
+    </div>`);
+  }
+
+  if (undated.length){
+    parts.push(`<div class="agendaDay">
+      <div class="agendaDayHead">Sin fecha</div>
+      <div class="agendaItems">${undated.map(t=>agendaItemHtml(t)).join("")}</div>
+    </div>`);
+  }
+
+  host.innerHTML = parts.join("");
+
+  // click item -> editar
+  if (!host.dataset.bound){
+    host.dataset.bound = "1";
+    host.addEventListener("click", (e)=>{
+      const row = e.target.closest(".agendaItem");
+      if (!row || !host.contains(row)) return;
+      const id = row.dataset.id;
+      const t = state.tasks.find(x=>x.id===id);
+      if (t) openEdit(t);
+    });
+  }
+}
+
+function agendaItemHtml(t){
+  const typeTxt = t.category === "event" ? "Evento" : "Tarea";
+  const whenStart = t.startTime ? fmtTime(t.startTime) : "";
+  const whenEnd = t.endTime ? fmtTime(t.endTime) : "";
+  const timeTxt = whenStart || whenEnd ? `${whenStart}${whenEnd ? `–${whenEnd}` : ""}` : "";
+  const tags = (t.tags||[]).slice(0,3).map(tag=>`<span class="tag" style="--h:${tagHue(tag)}">${escapeHtml(tag)}</span>`).join("");
+  const style = t.color ? `style="--task-border:${t.color}"` : "";
+  const extra = t.color ? "hasColor" : "";
+  return `<div class="agendaItem ${t.status} ${extra}" data-id="${escapeHtml(t.id)}" ${style}>
+    <div class="agendaMain">
+      <div class="agendaTitle">${escapeHtml(t.title)}</div>
+      <div class="agendaMeta">
+        <span class="chip mini">${escapeHtml(typeTxt)}</span>
+        ${timeTxt ? `<span class="chip mini subtle">${escapeHtml(timeTxt)}</span>` : ""}
+        <span class="chip mini subtle">${escapeHtml(t.priority)}</span>
+      </div>
+    </div>
+    <div class="agendaTags">${tags}</div>
+  </div>`;
 }
 
 
@@ -2667,6 +2808,18 @@ function bindUx() {
       if (iso) openDayModal(iso);
     });
   }
+
+  // agenda
+  const setAg = (range) => {
+    state.agendaRange = range;
+    save();
+    renderAgenda();
+  };
+  $("#agToday")?.addEventListener("click", ()=> setAg("today"));
+  $("#agTomorrow")?.addEventListener("click", ()=> setAg("tomorrow"));
+  $("#agWeek")?.addEventListener("click", ()=> setAg("week"));
+  $("#agMonth")?.addEventListener("click", ()=> setAg("month"));
+  $("#agAll")?.addEventListener("click", ()=> setAg("all"));
   // temporizador
   bindTimer();
 
