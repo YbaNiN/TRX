@@ -1866,3 +1866,94 @@ body.light .agendaItem{ border-top-color: rgba(0,0,0,.06); border-left-color: rg
 .agendaTags{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
 .agendaTags .tag{ font-size:12px; padding:4px 8px; border-radius:999px; background: hsla(var(--h), 80%, 55%, .16); border:1px solid hsla(var(--h), 80%, 55%, .25); }
 body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-color: hsla(var(--h), 60%, 45%, .22); }
+
+
+/* --- Opción B (Tareas): crear separado + filtros en modal (móvil) --- */
+.onlyMobile{display:none !important;}
+@media (max-width: 720px){
+  .onlyMobile{display:flex !important;}
+}
+
+.taskLayout{
+  display:grid;
+  grid-template-columns: 360px 1fr;
+  gap:16px;
+  align-items:start;
+}
+.taskMainPanel{min-width:0;}
+
+.taskCreatePanel{
+  background: var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:12px;
+}
+.taskCreateHead{margin-bottom:10px;}
+
+.taskControlsPanel{margin-top:10px;}
+
+/* Móvil: panel crear como bottom-sheet y filtros como modal */
+@media (max-width: 720px){
+  .taskLayout{grid-template-columns: 1fr;}
+  /* el panel de crear se convierte en sheet (cerrado por defecto) */
+  #taskCreatePanel{
+    display:none;
+    position:fixed;
+    left:10px;
+    right:10px;
+    bottom:10px;
+    max-height: 85vh;
+    overflow:auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translateY(120%);
+    transition: transform .18s ease;
+    z-index: 950;
+    box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  #taskCreatePanel.open{display:block; transform: translateY(0);}
+
+  /* filtros en modal */
+  #taskControlsPanel{
+    position:fixed;
+    left:10px;
+    right:10px;
+    top:12vh;
+    max-height: 76vh;
+    overflow:auto;
+    -webkit-overflow-scrolling: touch;
+    padding:12px;
+    border-radius:16px;
+    background: var(--card);
+    border:1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    opacity:0;
+    transform: translateY(10px);
+    pointer-events:none;
+    transition: opacity .18s ease, transform .18s ease;
+    z-index: 940;
+    display:none; /* hidden unless open */
+  }
+  #taskControlsPanel.open{
+    display:block;
+    opacity:1;
+    transform: translateY(0);
+    pointer-events:auto;
+  }
+
+  /* en móvil, ocultamos controles inline (se abren con botón Filtrar) */
+  .cardHead .taskControlsPanel .row.compact{flex-wrap:wrap;}
+  .cardHead .taskControlsPanel{display:none;}
+  .cardHead .taskControlsPanel.open{display:block;}
+
+  /* en móvil, el panel crear NO debe ocupar sitio en layout */
+  .taskLayout > .taskCreatePanel{margin-bottom:0;}
+}
+
+/* overlay para cerrar tocando fuera */
+.tasksOverlay{
+  position:fixed;
+  inset:0;
+  background: rgba(0,0,0,.45);
+  backdrop-filter: blur(2px);
+  z-index: 930;
+}
