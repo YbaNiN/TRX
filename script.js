@@ -1,6 +1,8 @@
 const LS = {
   tasks: "trx_tasks_v5",
   notes: "trx_notes_v5",
+  lists: "trx_lists_v1",
+  listItems: "trx_list_items_v1",
   theme: "trx_theme_v5",
   density: "trx_density_v1",
   activity: "trx_activity_v5",
@@ -19,6 +21,11 @@ let cloudSyncTimer = null;
 const CLOUD = {
   tasksTable: "trx_tasks",
   notesTable: "trx_notes",
+  listsTable: "trx_lists",
+  listItemsTable: "trx_list_items",
+  listSharesTable: "trx_list_shares",
+  delListsKey: "trx_cloud_deleted_lists_v1",
+  delListItemsKey: "trx_cloud_deleted_list_items_v1",
   delTasksKey: "trx_cloud_deleted_tasks_v1",
   delNotesKey: "trx_cloud_deleted_notes_v1",
   syncDebounceMs: 1200,
@@ -47,6 +54,9 @@ const DISCORD_CHANNEL_LABELS = {
 const state = {
   tasks: [],
   notes: [],
+  lists: [],
+  listItems: {},
+  currentListId: null,
   favColors: [],
   activityDays: [],
   session: null,
@@ -191,6 +201,8 @@ function load() {
     state.notes = rawNotes && rawNotes.trim() ? [{ id: uid(), text: rawNotes.trim(), pinned: false, createdAt: Date.now() }] : [];
   }
 
+  try { state.lists = JSON.parse(localStorage.getItem(LS.lists) || "[]"); } catch { state.lists = []; }
+  try { state.listItems = JSON.parse(localStorage.getItem(LS.listItems) || "{}"); } catch { state.listItems = {}; }
   try { state.favColors = JSON.parse(localStorage.getItem(LS.favColors) || "[]"); } catch { state.favColors = []; }
   try { state.activityDays = JSON.parse(localStorage.getItem(LS.activity) || "[]"); } catch { state.activityDays = []; }
   try { state.session = JSON.parse(localStorage.getItem(LS.session) || "null"); } catch { state.session = null; }
@@ -265,6 +277,8 @@ state.timer.pomodoroPresets = (state.timer.pomodoroPresets || [])
 function save() {
   localStorage.setItem(LS.tasks, JSON.stringify(state.tasks));
   localStorage.setItem(LS.notes, JSON.stringify(state.notes));
+  localStorage.setItem(LS.lists, JSON.stringify(state.lists));
+  localStorage.setItem(LS.listItems, JSON.stringify(state.listItems || {}));
   localStorage.setItem(LS.favColors, JSON.stringify(state.favColors || []));
   localStorage.setItem(LS.activity, JSON.stringify(state.activityDays));
   localStorage.setItem(LS.notifs, JSON.stringify(state.notifs));
@@ -315,15 +329,19 @@ async function cloudBootstrap(){
   if (!cloudIsReady()) return;
   const sb = supabaseClient;
   // 1) Load server data
-  const [tasksRes, notesRes] = await Promise.all([
+  const [tasksRes, notesRes, listsRes] = await Promise.all([
     sb.from(CLOUD.tasksTable).select("task_id,data,deleted,updated_at").eq("user_id", cloudUserId),
     sb.from(CLOUD.notesTable).select("note_id,data,deleted,updated_at").eq("user_id", cloudUserId),
+    sb.from(CLOUD.listsTable).select("user_id,list_id,data,deleted,updated_at"),
   ]);
   if (tasksRes.error) console.warn("Cloud tasks fetch", tasksRes.error);
   if (notesRes.error) console.warn("Cloud notes fetch", notesRes.error);
+  if (listsRes.error) console.warn("Cloud lists fetch", listsRes.error);
 
   const serverTasks = (tasksRes.data || []).filter(r => !r.deleted && r.data).map(r => r.data);
   const serverNotes = (notesRes.data || []).filter(r => !r.deleted && r.data).map(r => r.data);
+
+  const serverLists = (listsRes.data || []).filter(r => !r.deleted && r.data).map(r => ({ ...r.data, ownerId: r.data.ownerId || r.user_id }));
 
   // 2) Merge (server overlays local by id)
   const tMap = new Map((state.tasks || []).map(t => [t.id, t]));
@@ -333,6 +351,10 @@ async function cloudBootstrap(){
   const nMap = new Map((state.notes || []).map(n => [n.id, n]));
   for (const n of serverNotes) nMap.set(n.id, n);
   state.notes = [...nMap.values()];
+
+  const lMap = new Map((state.lists || []).map(l => [l.id, l]));
+  for (const l of serverLists) lMap.set(l.id, normalizeList(l));
+  state.lists = [...lMap.values()];
 
   save();
   renderAll();
@@ -371,6 +393,38 @@ async function cloudSyncAll(){
     if (error) console.warn("Cloud notes upsert", error);
   }
 
+
+  // Upsert lists
+  const listRows = (state.lists || []).map(l => ({
+    user_id: cloudUserId,
+    list_id: l.id,
+    data: l,
+    deleted: false,
+    updated_at: new Date().toISOString()
+  }));
+  if (listRows.length){
+    const { error } = await sb.from(CLOUD.listsTable).upsert(listRows, { onConflict: "user_id,list_id" });
+    if (error) console.warn("Cloud lists upsert", error);
+  }
+
+  // Upsert list items
+  const itemsFlat = [];
+  for (const [lid, arr] of Object.entries(state.listItems || {})) {
+    for (const it of (arr || [])) {
+      itemsFlat.push({
+        list_id: lid,
+        item_id: it.id,
+        data: it,
+        deleted: false,
+        updated_at: new Date().toISOString()
+      });
+    }
+  }
+  if (itemsFlat.length){
+    const { error } = await sb.from(CLOUD.listItemsTable).upsert(itemsFlat, { onConflict: "list_id,item_id" });
+    if (error) console.warn("Cloud list items upsert", error);
+  }
+
   // Deletes (hard delete)
   const delTasks = cloudGetDeleted(CLOUD.delTasksKey);
   if (delTasks.length){
@@ -384,6 +438,21 @@ async function cloudSyncAll(){
     const { error } = await sb.from(CLOUD.notesTable).delete().eq("user_id", cloudUserId).in("note_id", delNotes);
     if (error) console.warn("Cloud notes delete", error);
     else cloudClearDeleted(CLOUD.delNotesKey);
+  }
+
+
+  const delLists = cloudGetDeleted(CLOUD.delListsKey);
+  if (delLists.length){
+    const { error } = await sb.from(CLOUD.listsTable).delete().eq("user_id", cloudUserId).in("list_id", delLists);
+    if (error) console.warn("Cloud lists delete", error);
+    else cloudClearDeleted(CLOUD.delListsKey);
+  }
+
+  const delListItems = cloudGetDeleted(CLOUD.delListItemsKey);
+  if (delListItems.length){
+    const { error } = await sb.from(CLOUD.listItemsTable).delete().in("item_id", delListItems);
+    if (error) console.warn("Cloud list items delete", error);
+    else cloudClearDeleted(CLOUD.delListItemsKey);
   }
 }
 
@@ -738,6 +807,7 @@ function renderCmdk(q) {
     { name:"Ir a Resumen", desc:"Abrir resumen", key:"G", run:()=>switchTab("overview") },
     { name:"Ir a Tareas", desc:"Abrir tareas", key:"G", run:()=>switchTab("tasks") },
     { name:"Ir a Calendario", desc:"Abrir calendario", key:"G", run:()=>switchTab("calendar") },
+    { name:"Ir a Listas", desc:"Abrir listas", key:"G", run:()=>switchTab("lists") },
     { name:"Ir a Temporizador", desc:"Abrir temporizador", key:"G", run:()=>switchTab("timer") },
     { name:"Ir a Stats", desc:"Abrir estadísticas", key:"G", run:()=>switchTab("stats"), admin:true },
     { name:"Cambiar Tema", desc:"Claro/Oscuro", key:"T", run:()=>toggleTheme() },
@@ -1030,6 +1100,336 @@ function switchTab(id) {
   if (id === "agenda") {
     setTimeout(() => { renderAgenda(); }, 10);
   }
+  if (id === "lists") {
+    setTimeout(() => { renderLists(); }, 10);
+  }
+}
+
+
+
+/* ===================== Lists ===================== */
+function getAccessibleLists(){
+  return (state.lists || []).map(normalizeList).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+}
+function listIsOwner(l){
+  return cloudUserId && (l.ownerId ? l.ownerId === cloudUserId : true);
+}
+function listVisibilityLabel(l){
+  return l.visibility === "shared" ? "Compartida" : "Privada";
+}
+function ensureListItems(listId){
+  if (!state.listItems) state.listItems = {};
+  if (!Array.isArray(state.listItems[listId])) state.listItems[listId] = [];
+  return state.listItems[listId];
+}
+
+function renderLists(){
+  const box = $("#listsList");
+  if (!box) return;
+
+  const lists = getAccessibleLists();
+  $("#listsCount") && ($("#listsCount").textContent = String(lists.length));
+  $("#listsEmptyHint") && ($("#listsEmptyHint").style.display = lists.length ? "none" : "block");
+
+  const activeId = state.currentListId;
+  box.innerHTML = "";
+  for (const l of lists){
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "listBtn" + (l.id === activeId ? " active" : "");
+    btn.dataset.listId = l.id;
+
+    const left = document.createElement("div");
+    left.style.minWidth = "0";
+    left.innerHTML = `<div class="title">${escapeHtml(l.title)}</div>
+      <div class="meta"><span class="pill">${listVisibilityLabel(l)}</span>${l.ownerId && l.ownerId !== cloudUserId ? `<span class="pill">Compartida contigo</span>`:""}</div>`;
+    const right = document.createElement("div");
+    right.className = "meta";
+    right.textContent = "";
+
+    btn.append(left, right);
+    btn.addEventListener("click", () => openList(l.id));
+    box.appendChild(btn);
+  }
+
+  // si no hay lista activa, limpia panel
+  if (!activeId || !lists.some(x=>x.id===activeId)){
+    state.currentListId = null;
+    $("#listDetail") && ($("#listDetail").hidden = true);
+    $("#listEmpty") && ($("#listEmpty").style.display = "block");
+  } else {
+    // refresca detalle
+    renderListDetail();
+  }
+}
+
+function renderListDetail(){
+  const listId = state.currentListId;
+  const l = (state.lists || []).find(x=>x.id===listId);
+  const detail = $("#listDetail");
+  if (!l || !detail) return;
+
+  detail.hidden = false;
+  $("#listEmpty") && ($("#listEmpty").style.display = "none");
+
+  $("#listTitle").textContent = l.title;
+  $("#listMeta").textContent = `${listVisibilityLabel(l)} • ${listIsOwner(l) ? "Tu lista" : "Compartida"}`;
+
+  // botones owner-only
+  const canShare = listIsOwner(l);
+  $("#btnListShare").style.display = canShare ? "inline-flex" : "none";
+  $("#btnListDelete").style.display = canShare ? "inline-flex" : "none";
+
+  // items
+  const items = ensureListItems(listId).map(normalizeListItem);
+  const itemsBox = $("#listItems");
+  itemsBox.innerHTML = "";
+  if (!items.length){
+    itemsBox.innerHTML = `<div class="muted" style="padding:10px">Aún no hay items. Añade el primero arriba.</div>`;
+  } else {
+    for (const it of items){
+      const row = document.createElement("div");
+      row.className = "listItemRow" + (it.done ? " done":"");
+      row.innerHTML = `
+        <input class="chk" type="checkbox" ${it.done ? "checked":""} aria-label="Hecho"/>
+        <div class="txt">${escapeHtml(it.text)}</div>
+        <div class="mini">
+          <button class="btn ghost sm" type="button" data-act="edit">✎</button>
+          <button class="btn danger sm" type="button" data-act="del">🗑</button>
+        </div>
+      `;
+      row.querySelector(".chk").addEventListener("change", (e)=>{
+        it.done = !!e.target.checked;
+        it.updatedAt = Date.now();
+        save(); cloudScheduleSync();
+        renderListDetail();
+      });
+      row.querySelector('[data-act="del"]').addEventListener("click", ()=>{
+        deleteListItem(listId, it.id);
+      });
+      row.querySelector('[data-act="edit"]').addEventListener("click", ()=>{
+        const t = prompt("Editar item", it.text);
+        if (t === null) return;
+        it.text = String(t || "").trim();
+        it.updatedAt = Date.now();
+        save(); cloudScheduleSync();
+        renderListDetail();
+      });
+      itemsBox.appendChild(row);
+    }
+  }
+}
+
+function openList(listId){
+  state.currentListId = listId;
+  save();
+  renderLists();
+  // carga shares si procede
+  maybeLoadShares(listId);
+}
+
+function openListsCreateModal(){
+  const ov = $("#listsOverlay");
+  const modal = $("#listCreateModal");
+  if (!ov || !modal) return;
+  ov.hidden = false;
+  modal.hidden = false;
+  setTimeout(()=>{ $("#newListTitle")?.focus(); }, 40);
+}
+function closeListsCreateModal(){
+  const ov = $("#listsOverlay");
+  const modal = $("#listCreateModal");
+  if (!ov || !modal) return;
+  ov.hidden = true;
+  modal.hidden = true;
+}
+
+async function createList(){
+  const title = ($("#newListTitle")?.value || "").trim();
+  const vis = ($("#newListVisibility")?.value || "private");
+  if (!title) return toast("Pon un nombre a la lista.", "warn");
+  if (!cloudIsReady()) return toast("Inicia sesión para usar Listas en la nube.", "warn");
+
+  const list = normalizeList({
+    id: uid(),
+    title,
+    visibility: vis,
+    ownerId: cloudUserId,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  });
+
+  state.lists = [...(state.lists || []), list];
+  ensureListItems(list.id);
+  save();
+  closeListsCreateModal();
+  $("#newListTitle").value = "";
+  cloudScheduleSync();
+  openList(list.id);
+  toast("Lista creada.", "ok");
+}
+
+function addListItem(){
+  const listId = state.currentListId;
+  if (!listId) return;
+  const txt = ($("#listItemInput")?.value || "").trim();
+  if (!txt) return;
+  const it = normalizeListItem({ id: uid(), text: txt, done:false, createdAt: Date.now(), updatedAt: Date.now() });
+  const arr = ensureListItems(listId);
+  arr.push(it);
+  // bump list updated
+  const l = (state.lists || []).find(x=>x.id===listId);
+  if (l) l.updatedAt = Date.now();
+  save();
+  $("#listItemInput").value = "";
+  cloudScheduleSync();
+  renderListDetail();
+}
+
+function deleteListItem(listId, itemId){
+  const arr = ensureListItems(listId);
+  const idx = arr.findIndex(x=>x.id===itemId);
+  if (idx === -1) return;
+  arr.splice(idx,1);
+  cloudMarkDeleted(CLOUD.delListItemsKey, itemId);
+  const l = (state.lists || []).find(x=>x.id===listId);
+  if (l) l.updatedAt = Date.now();
+  save();
+  cloudScheduleSync();
+  renderListDetail();
+}
+
+function deleteCurrentList(){
+  const listId = state.currentListId;
+  const l = (state.lists || []).find(x=>x.id===listId);
+  if (!l) return;
+  if (!listIsOwner(l)) return toast("Solo el dueño puede eliminar la lista.", "warn");
+  if (!confirm("¿Eliminar esta lista y sus items?")) return;
+
+  // mark deleted in cloud
+  cloudMarkDeleted(CLOUD.delListsKey, listId);
+  // mark items deleted too
+  for (const it of (ensureListItems(listId) || [])){
+    cloudMarkDeleted(CLOUD.delListItemsKey, it.id);
+  }
+
+  state.lists = (state.lists || []).filter(x=>x.id!==listId);
+  delete state.listItems[listId];
+  state.currentListId = null;
+  save();
+  cloudScheduleSync();
+  renderLists();
+  toast("Lista eliminada.", "ok");
+}
+
+/* ---- Sharing ---- */
+async function maybeLoadShares(listId){
+  const panel = $("#listSharePanel");
+  if (panel && !panel.hidden && cloudIsReady()){
+    await loadShares(listId);
+  }
+}
+
+async function loadShares(listId){
+  if (!cloudIsReady()) return;
+  const sb = supabaseClient;
+  const { data, error } = await sb.from(CLOUD.listSharesTable).select("shared_user_id,created_at").eq("list_id", listId);
+  if (error){ console.warn("Share fetch", error); return; }
+  const ids = (data || []).map(r=>r.shared_user_id).filter(Boolean);
+  let profs = [];
+  if (ids.length){
+    const pr = await sb.from("profiles").select("id,username,display_name").in("id", ids);
+    if (!pr.error) profs = pr.data || [];
+  }
+  const map = new Map(profs.map(p=>[p.id,p]));
+  const sharedWith = ids.map(id=>map.get(id)).filter(Boolean).map(p=>({ user_id:p.id, username:p.username, display_name:p.display_name }));
+  // persist in list object for UI
+  const l = (state.lists || []).find(x=>x.id===listId);
+  if (l){ l.sharedWith = sharedWith; save(); }
+  renderShareChips(sharedWith, listId);
+}
+
+function renderShareChips(sharedWith, listId){
+  const chips = $("#shareChips");
+  if (!chips) return;
+  chips.innerHTML = "";
+  if (!sharedWith?.length){
+    chips.innerHTML = `<span class="muted">Aún no hay usuarios añadidos.</span>`;
+    return;
+  }
+  for (const u of sharedWith){
+    const el = document.createElement("button");
+    el.type="button";
+    el.className="chip";
+    el.textContent = (u.display_name || u.username || "usuario");
+    el.title = u.username || "";
+    el.addEventListener("click", async ()=>{
+      if (!confirm("Quitar acceso a este usuario?")) return;
+      await removeShare(listId, u.user_id);
+      await loadShares(listId);
+      toast("Acceso quitado.", "ok");
+    });
+    chips.appendChild(el);
+  }
+}
+
+async function addShare(){
+  const listId = state.currentListId;
+  const l = (state.lists || []).find(x=>x.id===listId);
+  if (!listId || !l) return;
+  if (!listIsOwner(l)) return toast("Solo el dueño puede compartir.", "warn");
+  if (!cloudIsReady()) return;
+
+  const uname = ($("#shareUsername")?.value || "").trim();
+  if (!uname) return;
+
+  const sb = supabaseClient;
+  const { data: prof, error: perr } = await sb.from("profiles").select("id,username,display_name").eq("username", uname).maybeSingle();
+  if (perr || !prof){ return toast("Usuario no encontrado.", "warn"); }
+
+  const { error } = await sb.from(CLOUD.listSharesTable).upsert({ list_id: listId, shared_user_id: prof.id }, { onConflict: "list_id,shared_user_id" });
+  if (error){ console.warn("Share add", error); return toast("No se pudo compartir.", "warn"); }
+
+  $("#shareUsername").value="";
+  await loadShares(listId);
+  toast("Compartido.", "ok");
+}
+
+async function removeShare(listId, userId){
+  if (!cloudIsReady()) return;
+  const sb = supabaseClient;
+  await sb.from(CLOUD.listSharesTable).delete().eq("list_id", listId).eq("shared_user_id", userId);
+}
+
+function toggleSharePanel(){
+  const panel = $("#listSharePanel");
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden){
+    loadShares(state.currentListId);
+    setTimeout(()=>$("#shareUsername")?.focus(), 60);
+  }
+}
+
+function bindLists(){
+  if ($("#btnListNew")) $("#btnListNew").addEventListener("click", openListsCreateModal);
+  if ($("#btnListCreateClose")) $("#btnListCreateClose").addEventListener("click", closeListsCreateModal);
+  if ($("#listsOverlay")) $("#listsOverlay").addEventListener("click", closeListsCreateModal);
+  if ($("#btnListCreate")) $("#btnListCreate").addEventListener("click", createList);
+  if ($("#newListTitle")) $("#newListTitle").addEventListener("keydown", (e)=>{ if (e.key==="Enter"){ e.preventDefault(); createList(); } });
+
+  if ($("#btnListItemAdd")) $("#btnListItemAdd").addEventListener("click", addListItem);
+  if ($("#listItemInput")) $("#listItemInput").addEventListener("keydown", (e)=>{ if (e.key==="Enter"){ e.preventDefault(); addListItem(); } });
+
+  if ($("#btnListDelete")) $("#btnListDelete").addEventListener("click", deleteCurrentList);
+
+  if ($("#btnListShare")) $("#btnListShare").addEventListener("click", toggleSharePanel);
+  if ($("#btnListShareClose")) $("#btnListShareClose").addEventListener("click", ()=>{ $("#listSharePanel").hidden = true; });
+  if ($("#btnShareAdd")) $("#btnShareAdd").addEventListener("click", addShare);
+  if ($("#shareUsername")) $("#shareUsername").addEventListener("keydown", (e)=>{ if (e.key==="Enter"){ e.preventDefault(); addShare(); } });
+
+  // render initial if tab visible
+  renderLists();
 }
 
 
@@ -1715,6 +2115,27 @@ function normalizeTask(t) {
   if (t.done && !t.doneAt) t.doneAt = Date.now();
   if (!t.done) t.doneAt = null;
   return t;
+}
+
+
+function normalizeList(l){
+  if (!l) l = {};
+  if (!l.id) l.id = uid();
+  if (!l.title) l.title = "Sin título";
+  if (!l.visibility) l.visibility = "private"; // private | shared
+  if (!Array.isArray(l.sharedWith)) l.sharedWith = []; // array of {user_id, username, display_name}
+  if (!l.createdAt) l.createdAt = Date.now();
+  if (!l.updatedAt) l.updatedAt = Date.now();
+  return l;
+}
+function normalizeListItem(it){
+  if (!it) it = {};
+  if (!it.id) it.id = uid();
+  if (!it.text) it.text = "";
+  if (typeof it.done !== "boolean") it.done = false;
+  if (!it.createdAt) it.createdAt = Date.now();
+  if (!it.updatedAt) it.updatedAt = Date.now();
+  return it;
 }
 
 function addTask(title, priority, tags, startDate, endDate, startTime, endTime, category, color) {
@@ -3399,6 +3820,7 @@ async function main() {
   bindModal();
   bindEditModal();
   bindDayModal();
+  bindLists();
   bindCmdk();
   bindUx();
   bindDiscordForms();
