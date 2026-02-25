@@ -1,3 +1,5 @@
+// ===================== TRX Panel · script.js =====================
+
 const LS = {
   tasks: "trx_tasks_v5",
   notes: "trx_notes_v5",
@@ -15,9 +17,11 @@ const LS = {
 
 const SUPABASE_URL = "https://hfduuucvknucjhrtodpt.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_HpAVTQ7Op6b2Cjnp9rBdrg_RmZrDJ9F";
+
 let supabaseClient = null;
 let cloudUserId = null;
 let cloudSyncTimer = null;
+
 const CLOUD = {
   tasksTable: "trx_tasks",
   notesTable: "trx_notes",
@@ -35,7 +39,6 @@ let authUiMode = "login"; // login | register
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
-
 
 // Discord webhooks por canal (pon aquí tus URLs reales)
 const DISCORD_WEBHOOKS = {
@@ -64,75 +67,76 @@ const state = {
   tagFilter: null,
   view: "list", // list | kanban
   timer: {
-  mode: "timer", // timer | pomodoro
-  durationMs: 25 * 1000,
-  remainingMs: 25 * 1000,
-  running: false,
-  endAt: null,
-  volume: 0.5,
-  finishedAt: null,
+    mode: "timer", // timer | pomodoro
+    durationMs: 25 * 1000,
+    remainingMs: 25 * 1000,
+    running: false,
+    endAt: null,
+    volume: 0.5,
+    finishedAt: null,
 
-  // Pomodoro
-  pomodoro: {
-    workMin: 25,
-    shortMin: 5,
-    longMin: 15,
-    longEvery: 4,
-    autoAdvance: true,
-    phase: "work", // work | short | long
-    completed: 0,  // trabajos completados
+    // Pomodoro
+    pomodoro: {
+      workMin: 25,
+      shortMin: 5,
+      longMin: 15,
+      longEvery: 4,
+      autoAdvance: true,
+      phase: "work", // work | short | long
+      completed: 0, // trabajos completados
+    },
+
+    // Configuraciones guardadas (máx 10)
+    pomodoroPresets: [],
+
+    // Para recordar el último temporizador "normal"
+    lastTimerDurationMs: 25 * 1000,
   },
-
-  // Configuraciones guardadas (máx 10)
-  pomodoroPresets: [],
-
-  // Para recordar el último temporizador "normal"
-  lastTimerDurationMs: 25 * 1000,
-},
 };
 
 function uid() {
   return Math.random().toString(16).slice(2) + Date.now().toString(16);
 }
 
-
-function toISODate(d){
+function toISODate(d) {
   // yyyy-mm-dd in local time
-  const dt = (d instanceof Date) ? d : new Date(d);
+  const dt = d instanceof Date ? d : new Date(d);
   const y = dt.getFullYear();
-  const m = String(dt.getMonth()+1).padStart(2,"0");
-  const day = String(dt.getDate()).padStart(2,"0");
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const day = String(dt.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
-function parseISODate(s){
+function parseISODate(s) {
   // returns Date at local midnight
   if (!s) return null;
-  const [y,m,d] = s.split("-").map(Number);
+  const [y, m, d] = s.split("-").map(Number);
   if (!y || !m || !d) return null;
-  return new Date(y, m-1, d, 0,0,0,0);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
-function fmtISODate(s){
+function fmtISODate(s) {
   const d = parseISODate(s);
   return d ? d.toLocaleDateString() : "";
 }
 
 // HH:MM -> HH:MM (para mostrar en UI). Mantiene formato y valida.
-function fmtTime(hhmm){
+function fmtTime(hhmm) {
   const s = String(hhmm || "").trim();
   if (!/^\d{2}:\d{2}$/.test(s)) return "";
   return s;
 }
-function daysBetween(a,b){
-  const ms = 24*60*60*1000;
+function daysBetween(a, b) {
+  const ms = 24 * 60 * 60 * 1000;
   const da = new Date(a.getFullYear(), a.getMonth(), a.getDate());
   const db = new Date(b.getFullYear(), b.getMonth(), b.getDate());
-  return Math.round((db - da)/ms);
+  return Math.round((db - da) / ms);
 }
-function tagHue(tag){
-  const str = (tag||"").trim().toLowerCase();
+function tagHue(tag) {
+  const str = (tag || "").trim().toLowerCase();
   let h = 0;
-  for (let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
-  return (h % 360);
+  for (let i = 0; i < str.length; i++) {
+    h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return h % 360;
 }
 
 function escapeHtml(str) {
@@ -174,7 +178,7 @@ function activityStreak() {
   let streak = 0;
   let d = new Date();
   for (;;) {
-    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     if (!set.has(k)) break;
     streak++;
     d.setDate(d.getDate() - 1);
@@ -184,7 +188,11 @@ function activityStreak() {
 
 /* ===================== Storage ===================== */
 function load() {
-  try { state.tasks = JSON.parse(localStorage.getItem(LS.tasks) || "[]"); } catch { state.tasks = []; }
+  try {
+    state.tasks = JSON.parse(localStorage.getItem(LS.tasks) || "[]");
+  } catch {
+    state.tasks = [];
+  }
   // Notes migration: old versions stored a single textarea string
   try {
     const rawNotes = localStorage.getItem(LS.notes);
@@ -201,13 +209,41 @@ function load() {
     state.notes = rawNotes && rawNotes.trim() ? [{ id: uid(), text: rawNotes.trim(), pinned: false, createdAt: Date.now() }] : [];
   }
 
-  try { state.lists = JSON.parse(localStorage.getItem(LS.lists) || "[]"); } catch { state.lists = []; }
-  try { state.listItems = JSON.parse(localStorage.getItem(LS.listItems) || "{}"); } catch { state.listItems = {}; }
-  try { state.favColors = JSON.parse(localStorage.getItem(LS.favColors) || "[]"); } catch { state.favColors = []; }
-  try { state.activityDays = JSON.parse(localStorage.getItem(LS.activity) || "[]"); } catch { state.activityDays = []; }
-  try { state.session = JSON.parse(localStorage.getItem(LS.session) || "null"); } catch { state.session = null; }
-  try { state.notifs = JSON.parse(localStorage.getItem(LS.notifs) || "[]"); } catch { state.notifs = []; }
-  try { state.dueNotifs = JSON.parse(localStorage.getItem(LS.dueNotifs) || "{}"); } catch { state.dueNotifs = {}; }
+  try {
+    state.lists = JSON.parse(localStorage.getItem(LS.lists) || "[]");
+  } catch {
+    state.lists = [];
+  }
+  try {
+    state.listItems = JSON.parse(localStorage.getItem(LS.listItems) || "{}");
+  } catch {
+    state.listItems = {};
+  }
+  try {
+    state.favColors = JSON.parse(localStorage.getItem(LS.favColors) || "[]");
+  } catch {
+    state.favColors = [];
+  }
+  try {
+    state.activityDays = JSON.parse(localStorage.getItem(LS.activity) || "[]");
+  } catch {
+    state.activityDays = [];
+  }
+  try {
+    state.session = JSON.parse(localStorage.getItem(LS.session) || "null");
+  } catch {
+    state.session = null;
+  }
+  try {
+    state.notifs = JSON.parse(localStorage.getItem(LS.notifs) || "[]");
+  } catch {
+    state.notifs = [];
+  }
+  try {
+    state.dueNotifs = JSON.parse(localStorage.getItem(LS.dueNotifs) || "{}");
+  } catch {
+    state.dueNotifs = {};
+  }
 
   // Agenda range
   try {
@@ -216,56 +252,58 @@ function load() {
   } catch {}
 
   // Timer
-try { state.timer = JSON.parse(localStorage.getItem(LS.timer) || "null") || state.timer; } catch {}
-// Normaliza timer
-const defTimer = {
-  mode: "timer",
-  durationMs: 25*1000,
-  remainingMs: 25*1000,
-  running:false,
-  endAt:null,
-  volume:0.5,
-  finishedAt:null,
-  pomodoro: { workMin:25, shortMin:5, longMin:15, longEvery:4, autoAdvance:true, phase:"work", completed:0 },
-  pomodoroPresets: [],
-  lastTimerDurationMs: 25*1000,
-};
-if (!state.timer || typeof state.timer !== "object") state.timer = defTimer;
-if (!state.timer.pomodoro || typeof state.timer.pomodoro !== "object") state.timer.pomodoro = defTimer.pomodoro;
-if (!Array.isArray(state.timer.pomodoroPresets)) state.timer.pomodoroPresets = [];
+  try {
+    state.timer = JSON.parse(localStorage.getItem(LS.timer) || "null") || state.timer;
+  } catch {}
+  // Normaliza timer
+  const defTimer = {
+    mode: "timer",
+    durationMs: 25 * 1000,
+    remainingMs: 25 * 1000,
+    running: false,
+    endAt: null,
+    volume: 0.5,
+    finishedAt: null,
+    pomodoro: { workMin: 25, shortMin: 5, longMin: 15, longEvery: 4, autoAdvance: true, phase: "work", completed: 0 },
+    pomodoroPresets: [],
+    lastTimerDurationMs: 25 * 1000,
+  };
+  if (!state.timer || typeof state.timer !== "object") state.timer = defTimer;
+  if (!state.timer.pomodoro || typeof state.timer.pomodoro !== "object") state.timer.pomodoro = defTimer.pomodoro;
+  if (!Array.isArray(state.timer.pomodoroPresets)) state.timer.pomodoroPresets = [];
 
-state.timer.mode = (state.timer.mode === "pomodoro") ? "pomodoro" : "timer";
-state.timer.durationMs = Math.max(1000, Number(state.timer.durationMs) || defTimer.durationMs);
-state.timer.remainingMs = Math.min(state.timer.durationMs, Math.max(0, Number(state.timer.remainingMs) || state.timer.durationMs));
-state.timer.running = Boolean(state.timer.running);
-state.timer.endAt = state.timer.endAt ? Number(state.timer.endAt) : null;
-state.timer.volume = Math.max(0, Math.min(1, Number(state.timer.volume) ?? defTimer.volume));
-state.timer.finishedAt = state.timer.finishedAt ? Number(state.timer.finishedAt) : null;
+  state.timer.mode = state.timer.mode === "pomodoro" ? "pomodoro" : "timer";
+  state.timer.durationMs = Math.max(1000, Number(state.timer.durationMs) || defTimer.durationMs);
+  state.timer.remainingMs = Math.min(state.timer.durationMs, Math.max(0, Number(state.timer.remainingMs) || state.timer.durationMs));
+  state.timer.running = Boolean(state.timer.running);
+  state.timer.endAt = state.timer.endAt ? Number(state.timer.endAt) : null;
+  state.timer.volume = Math.max(0, Math.min(1, Number(state.timer.volume) ?? defTimer.volume));
+  state.timer.finishedAt = state.timer.finishedAt ? Number(state.timer.finishedAt) : null;
 
-state.timer.lastTimerDurationMs = Math.max(1000, Number(state.timer.lastTimerDurationMs) || state.timer.durationMs);
+  state.timer.lastTimerDurationMs = Math.max(1000, Number(state.timer.lastTimerDurationMs) || state.timer.durationMs);
 
-// Pomodoro settings
-const p = state.timer.pomodoro;
-p.workMin = Math.max(1, Math.min(180, Number(p.workMin) || defTimer.pomodoro.workMin));
-p.shortMin = Math.max(1, Math.min(60, Number(p.shortMin) || defTimer.pomodoro.shortMin));
-p.longMin = Math.max(1, Math.min(120, Number(p.longMin) || defTimer.pomodoro.longMin));
-p.longEvery = Math.max(2, Math.min(10, Number(p.longEvery) || defTimer.pomodoro.longEvery));
-p.autoAdvance = Boolean(p.autoAdvance);
-p.phase = (p.phase === "short" || p.phase === "long") ? p.phase : "work";
-p.completed = Math.max(0, Number(p.completed) || 0);
+  // Pomodoro settings
+  const p = state.timer.pomodoro;
+  p.workMin = Math.max(1, Math.min(180, Number(p.workMin) || defTimer.pomodoro.workMin));
+  p.shortMin = Math.max(1, Math.min(60, Number(p.shortMin) || defTimer.pomodoro.shortMin));
+  p.longMin = Math.max(1, Math.min(120, Number(p.longMin) || defTimer.pomodoro.longMin));
+  p.longEvery = Math.max(2, Math.min(10, Number(p.longEvery) || defTimer.pomodoro.longEvery));
+  p.autoAdvance = Boolean(p.autoAdvance);
+  p.phase = p.phase === "short" || p.phase === "long" ? p.phase : "work";
+  p.completed = Math.max(0, Number(p.completed) || 0);
 
-// Pomodoro presets
-state.timer.pomodoroPresets = (state.timer.pomodoroPresets || [])
-  .filter(x => x && typeof x === "object")
-  .map(x => ({
-    id: String(x.id || uid()),
-    name: String(x.name || "Sin nombre").slice(0, 40),
-    workMin: Math.max(1, Math.min(180, Number(x.workMin) || p.workMin)),
-    shortMin: Math.max(1, Math.min(60, Number(x.shortMin) || p.shortMin)),
-    longMin: Math.max(1, Math.min(120, Number(x.longMin) || p.longMin)),
-    longEvery: Math.max(2, Math.min(10, Number(x.longEvery) || p.longEvery)),
-  }))
-  .slice(0, 10);
+  // Pomodoro presets
+  state.timer.pomodoroPresets = (state.timer.pomodoroPresets || [])
+    .filter((x) => x && typeof x === "object")
+    .map((x) => ({
+      id: String(x.id || uid()),
+      name: String(x.name || "Sin nombre").slice(0, 40),
+      workMin: Math.max(1, Math.min(180, Number(x.workMin) || p.workMin)),
+      shortMin: Math.max(1, Math.min(60, Number(x.shortMin) || p.shortMin)),
+      longMin: Math.max(1, Math.min(120, Number(x.longMin) || p.longMin)),
+      longEvery: Math.max(2, Math.min(10, Number(x.longEvery) || p.longEvery)),
+    }))
+    .slice(0, 10);
 
   const v = localStorage.getItem("trx_view_v1");
   if (v) state.view = v;
@@ -287,74 +325,98 @@ function save() {
   localStorage.setItem("trx_view_v1", state.view);
   if (state.agendaRange) localStorage.setItem("trx_agenda_range_v1", state.agendaRange);
   localStorage.setItem(LS.timer, JSON.stringify(state.timer || null));
-  try { cloudScheduleSync(); } catch {}
+  try {
+    cloudScheduleSync();
+  } catch {}
 }
 
 /* ===================== Cloud Sync (Supabase) ===================== */
-function cloudSetUser(user){
+function cloudSetUser(user) {
   cloudUserId = user?.id || null;
 }
 
-function cloudIsReady(){
-  return !!(cloudUserId && supabaseClient);
+// Helper: SIEMPRE usa el UID real de la sesión (evita 403 por des-sync de cloudUserId)
+async function cloudGetAuthUid(sb) {
+  try {
+    const { data: { user }, error } = await sb.auth.getUser();
+    if (error) return null;
+    return user?.id || null;
+  } catch {
+    return null;
+  }
 }
 
-function cloudGetDeleted(key){
+function cloudIsReady() {
+  return !!supabaseClient;
+}
+
+function cloudGetDeleted(key) {
   try {
     const raw = localStorage.getItem(key);
     const arr = raw ? JSON.parse(raw) : [];
     return Array.isArray(arr) ? arr : [];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
-function cloudAddDeleted(key, id){
+function cloudAddDeleted(key, id) {
   if (!id) return;
   const arr = cloudGetDeleted(key);
   if (!arr.includes(id)) arr.push(id);
   localStorage.setItem(key, JSON.stringify(arr));
 }
-function cloudClearDeleted(key){
+function cloudClearDeleted(key) {
   localStorage.setItem(key, JSON.stringify([]));
 }
 
-function cloudScheduleSync(){
+// Compat: en tu código llamas a cloudMarkDeleted (no existía en el snippet)
+function cloudMarkDeleted(key, id) {
+  cloudAddDeleted(key, id);
+}
+
+function cloudScheduleSync() {
   if (!cloudIsReady()) return;
   if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
   cloudSyncTimer = setTimeout(() => {
     cloudSyncTimer = null;
-    cloudSyncAll().catch(e => console.warn("cloudSyncAll error", e));
+    cloudSyncAll().catch((e) => console.warn("cloudSyncAll error", e));
   }, CLOUD.syncDebounceMs);
 }
 
-async function cloudBootstrap(){
+async function cloudBootstrap() {
   if (!cloudIsReady()) return;
   const sb = supabaseClient;
+  const authUid = await cloudGetAuthUid(sb);
+  if (!authUid) return;
+
   // 1) Load server data
   const [tasksRes, notesRes, listsRes] = await Promise.all([
-    sb.from(CLOUD.tasksTable).select("task_id,data,deleted,updated_at").eq("user_id", cloudUserId),
-    sb.from(CLOUD.notesTable).select("note_id,data,deleted,updated_at").eq("user_id", cloudUserId),
-    sb.from(CLOUD.listsTable)
-    .select("user_id,list_id,data,deleted,updated_at")
-    .eq("user_id", cloudUserId),
+    sb.from(CLOUD.tasksTable).select("task_id,data,deleted,updated_at").eq("user_id", authUid),
+    sb.from(CLOUD.notesTable).select("note_id,data,deleted,updated_at").eq("user_id", authUid),
+    sb.from(CLOUD.listsTable).select("user_id,list_id,data,deleted,updated_at").eq("user_id", authUid),
   ]);
+
   if (tasksRes.error) console.warn("Cloud tasks fetch", tasksRes.error);
   if (notesRes.error) console.warn("Cloud notes fetch", notesRes.error);
   if (listsRes.error) console.warn("Cloud lists fetch", listsRes.error);
 
-  const serverTasks = (tasksRes.data || []).filter(r => !r.deleted && r.data).map(r => r.data);
-  const serverNotes = (notesRes.data || []).filter(r => !r.deleted && r.data).map(r => r.data);
+  const serverTasks = (tasksRes.data || []).filter((r) => !r.deleted && r.data).map((r) => r.data);
+  const serverNotes = (notesRes.data || []).filter((r) => !r.deleted && r.data).map((r) => r.data);
 
-  const serverLists = (listsRes.data || []).filter(r => !r.deleted && r.data).map(r => ({ ...r.data, ownerId: r.data.ownerId || r.user_id }));
+  const serverLists = (listsRes.data || [])
+    .filter((r) => !r.deleted && r.data)
+    .map((r) => ({ ...r.data, ownerId: r.data.ownerId || r.user_id }));
 
   // 2) Merge (server overlays local by id)
-  const tMap = new Map((state.tasks || []).map(t => [t.id, t]));
+  const tMap = new Map((state.tasks || []).map((t) => [t.id, t]));
   for (const t of serverTasks) tMap.set(t.id, normalizeTask(t));
   state.tasks = [...tMap.values()];
 
-  const nMap = new Map((state.notes || []).map(n => [n.id, n]));
+  const nMap = new Map((state.notes || []).map((n) => [n.id, n]));
   for (const n of serverNotes) nMap.set(n.id, n);
   state.notes = [...nMap.values()];
 
-  const lMap = new Map((state.lists || []).map(l => [l.id, l]));
+  const lMap = new Map((state.lists || []).map((l) => [l.id, l]));
   for (const l of serverLists) lMap.set(l.id, normalizeList(l));
   state.lists = [...lMap.values()];
 
@@ -365,94 +427,98 @@ async function cloudBootstrap(){
   cloudScheduleSync();
 }
 
-async function cloudSyncAll(){
+async function cloudSyncAll() {
   if (!cloudIsReady()) return;
   const sb = supabaseClient;
 
+  const authUid = await cloudGetAuthUid(sb);
+  if (!authUid) return;
+
+  // Mantén cloudUserId por UI, pero para RLS usa authUid SIEMPRE
+  cloudUserId = authUid;
+
   // Upsert tasks
-  const taskRows = (state.tasks || []).map(t => ({
-    user_id: cloudUserId,
+  const taskRows = (state.tasks || []).map((t) => ({
+    user_id: authUid,
     task_id: t.id,
     data: t,
     deleted: false,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
   }));
-  if (taskRows.length){
+  if (taskRows.length) {
     const { error } = await sb.from(CLOUD.tasksTable).upsert(taskRows, { onConflict: "user_id,task_id" });
     if (error) console.warn("Cloud tasks upsert", error);
   }
 
   // Upsert notes
-  const noteRows = (state.notes || []).map(n => ({
-    user_id: cloudUserId,
+  const noteRows = (state.notes || []).map((n) => ({
+    user_id: authUid,
     note_id: n.id,
     data: n,
     deleted: false,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
   }));
-  if (noteRows.length){
+  if (noteRows.length) {
     const { error } = await sb.from(CLOUD.notesTable).upsert(noteRows, { onConflict: "user_id,note_id" });
     if (error) console.warn("Cloud notes upsert", error);
   }
 
-
   // Upsert lists
-  const listRows = (state.lists || []).map(l => ({
-    user_id: cloudUserId,
+  const listRows = (state.lists || []).map((l) => ({
+    user_id: authUid, // ✅ usa auth.uid real para pasar RLS
     list_id: l.id,
     data: l,
     deleted: false,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
   }));
-  if (listRows.length){
-    const { error } = await sb.from(CLOUD.listsTable).upsert(listRows, { onConflict: "user_id,list_id" });
-    if (error) console.warn("Cloud lists upsert", error);
+  if (listRows.length) {
+    const res = await sb.from(CLOUD.listsTable).upsert(listRows, { onConflict: "user_id,list_id" }).select("user_id,list_id");
+    if (res.error) console.warn("Cloud lists upsert", res.error);
   }
 
   // Upsert list items
+  // ✅ OJO: tu tabla trx_list_items NO tiene user_id. No lo envíes.
   const itemsFlat = [];
   for (const [lid, arr] of Object.entries(state.listItems || {})) {
-    for (const it of (arr || [])) {
-        itemsFlat.push({
-        user_id: cloudUserId,
+    for (const it of arr || []) {
+      itemsFlat.push({
         list_id: lid,
         item_id: it.id,
         data: it,
         deleted: false,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       });
     }
   }
-  if (itemsFlat.length){
+  if (itemsFlat.length) {
     const { error } = await sb.from(CLOUD.listItemsTable).upsert(itemsFlat, { onConflict: "list_id,item_id" });
     if (error) console.warn("Cloud list items upsert", error);
   }
 
   // Deletes (hard delete)
   const delTasks = cloudGetDeleted(CLOUD.delTasksKey);
-  if (delTasks.length){
-    const { error } = await sb.from(CLOUD.tasksTable).delete().eq("user_id", cloudUserId).in("task_id", delTasks);
+  if (delTasks.length) {
+    const { error } = await sb.from(CLOUD.tasksTable).delete().eq("user_id", authUid).in("task_id", delTasks);
     if (error) console.warn("Cloud tasks delete", error);
     else cloudClearDeleted(CLOUD.delTasksKey);
   }
 
   const delNotes = cloudGetDeleted(CLOUD.delNotesKey);
-  if (delNotes.length){
-    const { error } = await sb.from(CLOUD.notesTable).delete().eq("user_id", cloudUserId).in("note_id", delNotes);
+  if (delNotes.length) {
+    const { error } = await sb.from(CLOUD.notesTable).delete().eq("user_id", authUid).in("note_id", delNotes);
     if (error) console.warn("Cloud notes delete", error);
     else cloudClearDeleted(CLOUD.delNotesKey);
   }
 
-
   const delLists = cloudGetDeleted(CLOUD.delListsKey);
-  if (delLists.length){
-    const { error } = await sb.from(CLOUD.listsTable).delete().eq("user_id", cloudUserId).in("list_id", delLists);
+  if (delLists.length) {
+    const { error } = await sb.from(CLOUD.listsTable).delete().eq("user_id", authUid).in("list_id", delLists);
     if (error) console.warn("Cloud lists delete", error);
     else cloudClearDeleted(CLOUD.delListsKey);
   }
 
   const delListItems = cloudGetDeleted(CLOUD.delListItemsKey);
-  if (delListItems.length){
+  if (delListItems.length) {
     const { error } = await sb.from(CLOUD.listItemsTable).delete().in("item_id", delListItems);
     if (error) console.warn("Cloud list items delete", error);
     else cloudClearDeleted(CLOUD.delListItemsKey);
@@ -524,18 +590,18 @@ function toast({ title, message = "", type = "info", timeout = 2600 } = {}) {
 }
 
 /* ===================== Avisos de vencimiento ===================== */
-function notifyDueSoon(task, daysLeft){
-  const title = daysLeft === 0 ? "Vence hoy" : `Vence en ${daysLeft} día${daysLeft===1?"":"s"}`;
-  const message = `${task.category==="event" ? "Evento" : "Tarea"}: ${task.title}`;
+function notifyDueSoon(task, daysLeft) {
+  const title = daysLeft === 0 ? "Vence hoy" : `Vence en ${daysLeft} día${daysLeft === 1 ? "" : "s"}`;
+  const message = `${task.category === "event" ? "Evento" : "Tarea"}: ${task.title}`;
 
-  toast({ title, message, type: daysLeft<=1 ? "warn" : "info", timeout: 4200 });
+  toast({ title, message, type: daysLeft <= 1 ? "warn" : "info", timeout: 4200 });
 
   // Notificación del sistema (si el usuario dio permiso)
   if ("Notification" in window && Notification.permission === "granted") {
     try {
       // Si hay SW activo, mejor vía SW
       if (navigator.serviceWorker?.getRegistration) {
-        navigator.serviceWorker.getRegistration().then(reg => {
+        navigator.serviceWorker.getRegistration().then((reg) => {
           if (reg && reg.showNotification) {
             reg.showNotification(title, { body: message, tag: `due-${task.id}` });
           } else {
@@ -549,14 +615,14 @@ function notifyDueSoon(task, daysLeft){
   }
 }
 
-function checkDueNotifications(){
-  if (!state.tasks || state.tasks.length===0) return;
+function checkDueNotifications() {
+  if (!state.tasks || state.tasks.length === 0) return;
   if (!state.dueNotifs) state.dueNotifs = {};
 
   const today = new Date();
   const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-  for (const t of state.tasks){
+  for (const t of state.tasks) {
     if (t.status === "done") continue;
     const end = parseISODate(t.endDate);
     if (!end) continue;
@@ -565,10 +631,10 @@ function checkDueNotifications(){
     const daysLeft = daysBetween(today0, end0);
 
     // Ventana de aviso: dentro de 7 días (incluido), pero no negativo
-    if (daysLeft <= 7 && daysLeft >= 0){
+    if (daysLeft <= 7 && daysLeft >= 0) {
       const last = state.dueNotifs[t.id] || null;
       const stamp = toISODate(today0);
-      if (last !== stamp){
+      if (last !== stamp) {
         state.dueNotifs[t.id] = stamp;
         save();
         notifyDueSoon(t, daysLeft);
@@ -576,7 +642,6 @@ function checkDueNotifications(){
     }
   }
 }
-
 
 function openDrawer() {
   $("#notifyPanel").classList.add("open");
@@ -630,14 +695,19 @@ function openModal({ title = "Confirmación", desc = "", okText = "Aceptar", can
   $("#modalCancel").textContent = cancelText;
   m.classList.add("show");
   m.setAttribute("aria-hidden", "false");
-  return new Promise((resolve) => { modalResolve = resolve; });
+  return new Promise((resolve) => {
+    modalResolve = resolve;
+  });
 }
 
 function closeModal(result) {
   const m = $("#modal");
   m.classList.remove("show");
   m.setAttribute("aria-hidden", "true");
-  if (modalResolve) { modalResolve(result); modalResolve = null; }
+  if (modalResolve) {
+    modalResolve(result);
+    modalResolve = null;
+  }
 }
 
 /* ===================== UI: Edit Modal ===================== */
@@ -654,9 +724,9 @@ function openEdit(t) {
   if ($("#editStartTime")) $("#editStartTime").value = t.startTime || "";
   if ($("#editEndTime")) $("#editEndTime").value = t.endTime || "";
   $("#editTags").value = (t.tags || []).join(", ");
-    if ($("#editColor")) $("#editColor").value = (t.color && /^#[0-9a-f]{6}$/i.test(t.color)) ? t.color : "#3b82f6";
+  if ($("#editColor")) $("#editColor").value = t.color && /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : "#3b82f6";
   renderFavColors();
-const m = $("#editModal");
+  const m = $("#editModal");
   m.classList.add("show");
   m.setAttribute("aria-hidden", "false");
   $("#editText").focus();
@@ -669,67 +739,67 @@ function closeEdit() {
   m.setAttribute("aria-hidden", "true");
 }
 
-
 /* ===================== UI: Day Modal (Calendario) ===================== */
 let dayModalISO = null;
 
-function tasksForISODate(iso){
+function tasksForISODate(iso) {
   const d = parseISODate(iso);
   if (!d) return [];
-  const day0 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0);
+  const day0 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
   const out = [];
 
-  for (const t of state.tasks){
+  for (const t of state.tasks) {
     const s = parseISODate(t.startDate);
     const e = parseISODate(t.endDate);
     if (!s || !e) continue;
 
-    const s0 = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0,0,0,0);
-    const e0 = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 0,0,0,0);
+    const s0 = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, 0, 0, 0);
+    const e0 = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 0, 0, 0, 0);
 
-    if (day0 >= s0 && day0 <= e0){
+    if (day0 >= s0 && day0 <= e0) {
       const starts = day0.getTime() === s0.getTime();
       const ends = day0.getTime() === e0.getTime();
-      const point = starts ? "start" : (ends ? "end" : "mid");
+      const point = starts ? "start" : ends ? "end" : "mid";
       out.push({ task: t, point });
     }
   }
 
-  const pr = { high:0, med:1, low:2 };
-  out.sort((a,b)=>
-    (a.task.category==="event"?0:1)-(b.task.category==="event"?0:1) ||
-    (pr[a.task.priority]??9)-(pr[b.task.priority]??9) ||
-    (a.task.startTime||"").localeCompare(b.task.startTime||"") ||
-    (a.task.createdAt-b.task.createdAt)
+  const pr = { high: 0, med: 1, low: 2 };
+  out.sort(
+    (a, b) =>
+      (a.task.category === "event" ? 0 : 1) - (b.task.category === "event" ? 0 : 1) ||
+      (pr[a.task.priority] ?? 9) - (pr[b.task.priority] ?? 9) ||
+      (a.task.startTime || "").localeCompare(b.task.startTime || "") ||
+      a.task.createdAt - b.task.createdAt
   );
   return out;
 }
 
-function openDayModal(iso){
+function openDayModal(iso) {
   const m = $("#dayModal");
   if (!m) return;
   dayModalISO = iso;
 
   const d = parseISODate(iso);
-  const title = d ? d.toLocaleDateString(undefined, { weekday:"long", year:"numeric", month:"long", day:"numeric" }) : iso;
+  const title = d ? d.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : iso;
   $("#dayModalTitle").textContent = title;
 
   const list = $("#dayModalList");
   const items = tasksForISODate(iso);
 
-  if (!items.length){
+  if (!items.length) {
     list.innerHTML = `<div class="muted">No hay tareas/eventos este día.</div>`;
   } else {
-    list.innerHTML = items.map(({task:t, point})=>{
-      const badge = t.status;
-      const typeTxt = t.category === "event" ? "Evento" : "Tarea";
-      const span = (t.startDate !== t.endDate) ? `· Rango ${fmtISODate(t.startDate)} → ${fmtISODate(t.endDate)}` : "";
-      const when = (t.startTime || t.endTime)
-        ? `· ${t.startTime?fmtTime(t.startTime):""}${(t.startTime&&t.endTime)?"→":""}${t.endTime?fmtTime(t.endTime):""}`
-        : "";
-      const flag = point === "start" ? "Comienza" : (point === "end" ? "Termina" : "En curso");
-      const style = t.color ? ` style="border-left:4px solid ${t.color}; padding-left:10px"` : "";
-      return `
+    list.innerHTML = items
+      .map(({ task: t, point }) => {
+        const badge = t.status;
+        const typeTxt = t.category === "event" ? "Evento" : "Tarea";
+        const span = t.startDate !== t.endDate ? `· Rango ${fmtISODate(t.startDate)} → ${fmtISODate(t.endDate)}` : "";
+        const when =
+          t.startTime || t.endTime ? `· ${t.startTime ? fmtTime(t.startTime) : ""}${t.startTime && t.endTime ? "→" : ""}${t.endTime ? fmtTime(t.endTime) : ""}` : "";
+        const flag = point === "start" ? "Comienza" : point === "end" ? "Termina" : "En curso";
+        const style = t.color ? ` style="border-left:4px solid ${t.color}; padding-left:10px"` : "";
+        return `
         <div class="dayItem" data-id="${escapeHtml(t.id)}"${style}>
           <div class="dayItemTop">
             <div>
@@ -739,17 +809,18 @@ function openDayModal(iso){
             <div class="dayBadge ${escapeHtml(badge)}">${escapeHtml(badge)}</div>
           </div>
         </div>`;
-    }).join("");
+      })
+      .join("");
 
     // bind click once via delegation
-    if (!list.dataset.bound){
+    if (!list.dataset.bound) {
       list.dataset.bound = "1";
-      list.addEventListener("click", (e)=>{
+      list.addEventListener("click", (e) => {
         const item = e.target.closest(".dayItem");
         if (!item) return;
         const id = item.dataset.id;
-        const t = state.tasks.find(x=>x.id===id);
-        if (t){
+        const t = state.tasks.find((x) => x.id === id);
+        if (t) {
           closeDayModal();
           openEdit(t);
         }
@@ -761,7 +832,7 @@ function openDayModal(iso){
   m.setAttribute("aria-hidden", "false");
 }
 
-function closeDayModal(){
+function closeDayModal() {
   const m = $("#dayModal");
   if (!m) return;
   dayModalISO = null;
@@ -769,16 +840,16 @@ function closeDayModal(){
   m.setAttribute("aria-hidden", "true");
 }
 
-function bindDayModal(){
+function bindDayModal() {
   const m = $("#dayModal");
   if (!m || m.dataset.bound) return;
   m.dataset.bound = "1";
   $("#dayModalX")?.addEventListener("click", closeDayModal);
   $("#dayModalClose")?.addEventListener("click", closeDayModal);
-  m.addEventListener("click", (e)=>{
+  m.addEventListener("click", (e) => {
     if (e.target?.closest('[data-close-day="1"]')) closeDayModal();
   });
-  document.addEventListener("keydown", (e)=>{
+  document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && m.classList.contains("show")) closeDayModal();
   });
 }
@@ -807,28 +878,34 @@ function renderCmdk(q) {
   list.innerHTML = "";
 
   const base = [
-    { name:"Ir a Resumen", desc:"Abrir resumen", key:"G", run:()=>switchTab("overview") },
-    { name:"Ir a Tareas", desc:"Abrir tareas", key:"G", run:()=>switchTab("tasks") },
-    { name:"Ir a Calendario", desc:"Abrir calendario", key:"G", run:()=>switchTab("calendar") },
-    { name:"Ir a Listas", desc:"Abrir listas", key:"G", run:()=>switchTab("lists") },
-    { name:"Ir a Temporizador", desc:"Abrir temporizador", key:"G", run:()=>switchTab("timer") },
-    { name:"Ir a Stats", desc:"Abrir estadísticas", key:"G", run:()=>switchTab("stats"), admin:true },
-    { name:"Cambiar Tema", desc:"Claro/Oscuro", key:"T", run:()=>toggleTheme() },
-    { name:"Activar notificaciones", desc:"Permitir avisos de vencimiento", key:"N", run:()=>{
-        if (!("Notification" in window)) return toast({title:"No disponible", message:"Este navegador no soporta notificaciones.", type:"warn"});
-        Notification.requestPermission().then(p=>{
-          toast({ title:"Notificaciones", message: p==="granted" ? "Permiso concedido." : "Permiso denegado.", type: p==="granted" ? "ok" : "warn" });
+    { name: "Ir a Resumen", desc: "Abrir resumen", key: "G", run: () => switchTab("overview") },
+    { name: "Ir a Tareas", desc: "Abrir tareas", key: "G", run: () => switchTab("tasks") },
+    { name: "Ir a Calendario", desc: "Abrir calendario", key: "G", run: () => switchTab("calendar") },
+    { name: "Ir a Listas", desc: "Abrir listas", key: "G", run: () => switchTab("lists") },
+    { name: "Ir a Temporizador", desc: "Abrir temporizador", key: "G", run: () => switchTab("timer") },
+    { name: "Ir a Stats", desc: "Abrir estadísticas", key: "G", run: () => switchTab("stats"), admin: true },
+    { name: "Cambiar Tema", desc: "Claro/Oscuro", key: "T", run: () => toggleTheme() },
+    {
+      name: "Activar notificaciones",
+      desc: "Permitir avisos de vencimiento",
+      key: "N",
+      run: () => {
+        if (!("Notification" in window)) return toast({ title: "No disponible", message: "Este navegador no soporta notificaciones.", type: "warn" });
+        Notification.requestPermission().then((p) => {
+          toast({ title: "Notificaciones", message: p === "granted" ? "Permiso concedido." : "Permiso denegado.", type: p === "granted" ? "ok" : "warn" });
         });
-      } },
-    { name:"Cambiar Densidad", desc:"Compacta/Normal", key:"D", run:()=>toggleDensity() },
-    { name:"Nueva tarea", desc:"Enfocar input y crear", key:"N", run:()=>{switchTab("tasks"); setTimeout(()=>$("#taskInput").focus(), 50);} },
-    { name:"Notificaciones", desc:"Abrir panel", key:"B", run:()=>openDrawer() },
-    { name:"Cerrar sesión", desc:"Salir de la sesión", key:"L", run:()=>logoutFlow() },
+      },
+    },
+    { name: "Cambiar Densidad", desc: "Compacta/Normal", key: "D", run: () => toggleDensity() },
+    { name: "Nueva tarea", desc: "Enfocar input y crear", key: "N", run: () => { switchTab("tasks"); setTimeout(() => $("#taskInput").focus(), 50); } },
+    { name: "Notificaciones", desc: "Abrir panel", key: "B", run: () => openDrawer() },
+    { name: "Cerrar sesión", desc: "Salir de la sesión", key: "L", run: () => logoutFlow() },
   ];
 
   const isAdmin = state.session?.role === "admin";
-  cmdkItems = base.filter(x => !x.admin || isAdmin)
-    .filter(x => (x.name + " " + x.desc).toLowerCase().includes((q||"").trim().toLowerCase()));
+  cmdkItems = base
+    .filter((x) => !x.admin || isAdmin)
+    .filter((x) => (x.name + " " + x.desc).toLowerCase().includes((q || "").trim().toLowerCase()));
 
   if (cmdkItems.length === 0) {
     const empty = document.createElement("div");
@@ -849,7 +926,10 @@ function renderCmdk(q) {
       </div>
       <div class="cmdkKey">${escapeHtml(it.key)}</div>
     `;
-    row.addEventListener("click", () => { it.run(); closeCmdk(); });
+    row.addEventListener("click", () => {
+      it.run();
+      closeCmdk();
+    });
     list.appendChild(row);
   });
 }
@@ -866,13 +946,13 @@ function cmdkRun() {
   closeCmdk();
 }
 
-
-async function initSupabaseClient(){
+/* ===================== Supabase init ===================== */
+async function initSupabaseClient() {
   if (supabaseClient) return supabaseClient;
   if (!window.supabase || !SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
   try {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true }
+      auth: { persistSession: true, autoRefreshToken: true },
     });
     return supabaseClient;
   } catch (e) {
@@ -881,35 +961,36 @@ async function initSupabaseClient(){
   }
 }
 
-async function fetchProfileForUser(user){
+async function fetchProfileForUser(user) {
   const sb = await initSupabaseClient();
   if (!sb || !user?.id) {
     const email = user?.email || "";
-    return { username: (email.split("@")[0] || "usuario"), role: "user" };
+    return { username: email.split("@")[0] || "usuario", role: "user" };
   }
   const { data, error } = await sb.from("profiles").select("username,display_name,role").eq("id", user.id).maybeSingle();
-  if (error) {
-    console.warn("Profile fetch error", error);
-  }
+  if (error) console.warn("Profile fetch error", error);
   const email = user.email || "";
   return {
     username: data?.display_name || data?.username || (email.split("@")[0] || "usuario"),
-    role: data?.role || "user"
+    role: data?.role || "user",
   };
 }
 
-async function applySupabaseSession(user, opts = {}){
+async function applySupabaseSession(user, opts = {}) {
   if (!user) return false;
   const profile = await fetchProfileForUser(user);
   setSession(profile.username, profile.role, user.email || "");
-  try { cloudSetUser(user); cloudBootstrap(); } catch {}
+  try {
+    cloudSetUser(user);
+    cloudBootstrap();
+  } catch {}
   if (opts.toastMessage) {
-    toast({ title:"Bienvenido", message: opts.toastMessage, type:"ok" });
+    toast({ title: "Bienvenido", message: opts.toastMessage, type: "ok" });
   }
   return true;
 }
 
-function setAuthMode(mode){
+function setAuthMode(mode) {
   authUiMode = mode === "register" ? "register" : "login";
   const form = document.getElementById("loginForm");
   if (form) form.dataset.mode = authUiMode;
@@ -922,7 +1003,7 @@ function setAuthMode(mode){
   const chip = document.getElementById("authModeChip");
   if (regNameField) regNameField.style.display = authUiMode === "register" ? "block" : "none";
   if (regName) regName.required = authUiMode === "register";
-  if (email) email.autocomplete = authUiMode === "register" ? "email" : "email";
+  if (email) email.autocomplete = "email";
   if (pass) pass.autocomplete = authUiMode === "register" ? "new-password" : "current-password";
   if (btn) btn.textContent = authUiMode === "register" ? "Crear cuenta" : "Entrar";
   if (toggle) toggle.textContent = authUiMode === "register" ? "Ya tengo cuenta" : "Crear cuenta";
@@ -948,7 +1029,7 @@ function lockByRole(role) {
 
     const tabId = t.getAttribute("data-tab");
     const allowForAll = tabId === "notes" || tabId === "stats";
-    const ok = allowForAll ? true : (req === role);
+    const ok = allowForAll ? true : req === role;
 
     t.disabled = !ok;
     t.classList.toggle("is-locked", !ok);
@@ -974,21 +1055,24 @@ function setSession(username, role, email = "") {
   showGate(false);
   switchTab("overview");
   toast({ title: "Sesión iniciada", message: `${username} conectado`, type: "ok" });
-  try { scheduleInstallUIAfterLogin(); } catch {}
+  try {
+    scheduleInstallUIAfterLogin();
+  } catch {}
 }
 
 async function clearSession() {
   try {
     const sb = await initSupabaseClient();
-    if (sb) {
-      await sb.auth.signOut();
-    }
+    if (sb) await sb.auth.signOut();
   } catch (e) {
     console.warn("Supabase signOut error", e);
   }
   state.session = null;
   cloudUserId = null;
-  if (cloudSyncTimer) { clearTimeout(cloudSyncTimer); cloudSyncTimer = null; }
+  if (cloudSyncTimer) {
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = null;
+  }
   localStorage.removeItem(LS.session);
   $("#who").textContent = "";
   showGate(true);
@@ -996,19 +1080,11 @@ async function clearSession() {
   toast({ title: "Sesión cerrada", message: "Acceso finalizado", type: "info" });
 }
 
-async function sha256Hex(text) {
-  const enc = new TextEncoder().encode(text);
-  const buf = await crypto.subtle.digest("SHA-256", enc);
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
 function authErrorMessage(error, mode = "login") {
   const raw = (error?.message || error?.error_description || error || "").toString();
   const msg = raw.toLowerCase();
   if (msg.includes("invalid login credentials") || msg.includes("invalid_credentials")) {
-    return mode === "login"
-      ? "Correo o contraseña incorrectos. Inicia sesión con tu EMAIL (no con nombre de usuario)."
-      : "No se pudo crear la cuenta con esas credenciales.";
+    return mode === "login" ? "Correo o contraseña incorrectos. Inicia sesión con tu EMAIL (no con nombre de usuario)." : "No se pudo crear la cuenta con esas credenciales.";
   }
   if (msg.includes("email not confirmed") || msg.includes("email_not_confirmed")) {
     return "Tu correo no está confirmado. Revisa tu email o desactiva la confirmación en Supabase para pruebas.";
@@ -1024,42 +1100,41 @@ function authErrorMessage(error, mode = "login") {
 
 async function tryLogin(email, password) {
   const sb = await initSupabaseClient();
-  if (!sb) return { ok:false, error:"Supabase no está configurado" };
+  if (!sb) return { ok: false, error: "Supabase no está configurado" };
   const e = (email || "").trim().toLowerCase();
   const p = password || "";
   const { data, error } = await sb.auth.signInWithPassword({ email: e, password: p });
-  if (error) return { ok:false, error: authErrorMessage(error, "login") };
-  if (!data?.user) return { ok:false, error:"Sesión no disponible" };
+  if (error) return { ok: false, error: authErrorMessage(error, "login") };
+  if (!data?.user) return { ok: false, error: "Sesión no disponible" };
   await applySupabaseSession(data.user, { toastMessage: "Acceso concedido" });
-  return { ok:true };
+  return { ok: true };
 }
 
-async function tryRegister(name, email, password){
+async function tryRegister(name, email, password) {
   const sb = await initSupabaseClient();
-  if (!sb) return { ok:false, error:"Supabase no está configurado" };
+  if (!sb) return { ok: false, error: "Supabase no está configurado" };
   const displayName = String(name || "").trim();
   const e = (email || "").trim().toLowerCase();
   const p = password || "";
-  if (displayName.length < 2) return { ok:false, error:"Pon un nombre de al menos 2 caracteres" };
-  if (p.length < 6) return { ok:false, error:"La contraseña debe tener al menos 6 caracteres" };
+  if (displayName.length < 2) return { ok: false, error: "Pon un nombre de al menos 2 caracteres" };
+  if (p.length < 6) return { ok: false, error: "La contraseña debe tener al menos 6 caracteres" };
 
   const { data, error } = await sb.auth.signUp({
     email: e,
     password: p,
-    options: { data: { username: displayName } }
+    options: { data: { username: displayName } },
   });
-  if (error) return { ok:false, error: authErrorMessage(error, "register") };
+  if (error) return { ok: false, error: authErrorMessage(error, "register") };
 
   if (data?.user && data?.session) {
-    // Asegura username amigable por si el trigger usó el correo
     try {
       await sb.from("profiles").update({ username: displayName, display_name: displayName }).eq("id", data.user.id);
     } catch {}
     await applySupabaseSession(data.user, { toastMessage: "Cuenta creada" });
-    return { ok:true, registered:true };
+    return { ok: true, registered: true };
   }
 
-  return { ok:true, registered:true, needsEmailConfirm:true };
+  return { ok: true, registered: true, needsEmailConfirm: true };
 }
 
 /* ===================== Sidebar Mobile ===================== */
@@ -1091,51 +1166,64 @@ function switchTab(id) {
 
   if (id === "tasks") {
     showTasksSkeleton();
-    setTimeout(() => { hideTasksSkeleton(); renderAll(); }, 220);
+    setTimeout(() => {
+      hideTasksSkeleton();
+      renderAll();
+    }, 220);
   }
   if (id === "stats") {
     showStatsSkeleton();
-    setTimeout(() => { hideStatsSkeleton(); redrawChartsIfVisible(); }, 260);
+    setTimeout(() => {
+      hideStatsSkeleton();
+      redrawChartsIfVisible();
+    }, 260);
   }
   if (id === "timer") {
-    setTimeout(() => { renderTimerUI(true); }, 20);
+    setTimeout(() => {
+      renderTimerUI(true);
+    }, 20);
   }
   if (id === "agenda") {
-    setTimeout(() => { renderAgenda(); }, 10);
+    setTimeout(() => {
+      renderAgenda();
+    }, 10);
   }
   if (id === "lists") {
-    setTimeout(() => { renderLists(); }, 10);
+    setTimeout(() => {
+      renderLists();
+    }, 10);
   }
 }
 
-
-
 /* ===================== Lists ===================== */
-function getAccessibleLists(){
-  return (state.lists || []).map(normalizeList).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+function getAccessibleLists() {
+  return (state.lists || []).map(normalizeList).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 }
-function listIsOwner(l){
+function listIsOwner(l) {
   return cloudUserId && (l.ownerId ? l.ownerId === cloudUserId : true);
 }
-function listVisibilityLabel(l){
+function listVisibilityLabel(l) {
   return l.visibility === "shared" ? "Compartida" : "Privada";
 }
-function ensureListItems(listId){
+function ensureListItems(listId) {
   if (!state.listItems) state.listItems = {};
   if (!Array.isArray(state.listItems[listId])) state.listItems[listId] = [];
   return state.listItems[listId];
 }
 
-function listsIsMobile(){
-  try{ return window.matchMedia("(max-width: 980px), (pointer: coarse)").matches; }
-  catch{ return window.innerWidth <= 980; }
+function listsIsMobile() {
+  try {
+    return window.matchMedia("(max-width: 980px), (pointer: coarse)").matches;
+  } catch {
+    return window.innerWidth <= 980;
+  }
 }
-function setListsView(view){
+function setListsView(view) {
   const sec = $("#lists");
   if (sec) sec.dataset.view = view;
 }
 
-function renderLists(){
+function renderLists() {
   const box = $("#listsList");
   if (!box) return;
 
@@ -1145,7 +1233,7 @@ function renderLists(){
 
   const activeId = state.currentListId;
   box.innerHTML = "";
-  for (const l of lists){
+  for (const l of lists) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "listBtn" + (l.id === activeId ? " active" : "");
@@ -1154,7 +1242,7 @@ function renderLists(){
     const left = document.createElement("div");
     left.style.minWidth = "0";
     left.innerHTML = `<div class="title">${escapeHtml(l.title)}</div>
-      <div class="meta"><span class="pill">${listVisibilityLabel(l)}</span>${l.ownerId && l.ownerId !== cloudUserId ? `<span class="pill">Compartida contigo</span>`:""}</div>`;
+      <div class="meta"><span class="pill">${listVisibilityLabel(l)}</span>${l.ownerId && l.ownerId !== cloudUserId ? `<span class="pill">Compartida contigo</span>` : ""}</div>`;
     const right = document.createElement("div");
     right.className = "meta";
     right.textContent = "";
@@ -1165,7 +1253,7 @@ function renderLists(){
   }
 
   // si no hay lista activa, limpia panel
-  if (!activeId || !lists.some(x=>x.id===activeId)){
+  if (!activeId || !lists.some((x) => x.id === activeId)) {
     state.currentListId = null;
     $("#listDetail") && ($("#listDetail").hidden = true);
     $("#listEmpty") && ($("#listEmpty").style.display = "block");
@@ -1176,9 +1264,9 @@ function renderLists(){
   }
 }
 
-function renderListDetail(){
+function renderListDetail() {
   const listId = state.currentListId;
-  const l = (state.lists || []).find(x=>x.id===listId);
+  const l = (state.lists || []).find((x) => x.id === listId);
   const detail = $("#listDetail");
   if (!l || !detail) return;
 
@@ -1199,44 +1287,46 @@ function renderListDetail(){
   const itemsBox = $("#listItems");
   itemsBox.innerHTML = "";
   const cols = $("#listCols");
-  if (!items.length){
+  if (!items.length) {
     if (cols) cols.style.display = "none";
     itemsBox.innerHTML = `<div class="muted" style="padding:10px">Aún no hay items. Añade el primero arriba.</div>`;
   } else {
     if (cols) cols.style.display = "grid";
-    for (let i = 0; i < items.length; i++){
+    for (let i = 0; i < items.length; i++) {
       const it = items[i];
       const ref = itemsRef[i];
       const row = document.createElement("div");
-      row.className = "listItemRow" + (it.done ? " done":"");
+      row.className = "listItemRow" + (it.done ? " done" : "");
       row.innerHTML = `
-        <input class="chk" type="checkbox" ${it.done ? "checked":""} aria-label="Hecho"/>
+        <input class="chk" type="checkbox" ${it.done ? "checked" : ""} aria-label="Hecho"/>
         <div class="txt">${escapeHtml(it.text)}</div>
         <div class="mini">
           <button class="btn ghost sm" type="button" data-act="edit">✎</button>
           <button class="btn danger sm" type="button" data-act="del">🗑</button>
         </div>
       `;
-      row.querySelector(".chk").addEventListener("change", (e)=>{
+      row.querySelector(".chk").addEventListener("change", (e) => {
         // update the real state object
         ref.done = !!e.target.checked;
         ref.updatedAt = Date.now();
-        save(); cloudScheduleSync();
+        save();
+        cloudScheduleSync();
         renderListDetail();
       });
-      row.querySelector('[data-act="del"]').addEventListener("click", ()=>{
+      row.querySelector('[data-act="del"]').addEventListener("click", () => {
         // Optimistic UI: remove from DOM immediately, then update state + cloud.
         row.remove();
         deleteListItem(listId, ref.id, { render: false });
         // If we removed the last row, re-render to show the empty hint.
         if (!ensureListItems(listId).length) renderListDetail();
       });
-      row.querySelector('[data-act="edit"]').addEventListener("click", ()=>{
+      row.querySelector('[data-act="edit"]').addEventListener("click", () => {
         const t = prompt("Editar item", ref.text);
         if (t === null) return;
         ref.text = String(t || "").trim();
         ref.updatedAt = Date.now();
-        save(); cloudScheduleSync();
+        save();
+        cloudScheduleSync();
         renderListDetail();
       });
       itemsBox.appendChild(row);
@@ -1244,20 +1334,21 @@ function renderListDetail(){
   }
 }
 
-function openList(listId){
+function openList(listId) {
   state.currentListId = listId;
   save();
   renderLists();
-  if (listsIsMobile()){
+  if (listsIsMobile()) {
     setListsView("detail");
-    // asegura que el usuario ve el detalle arriba
-    setTimeout(()=>{ window.scrollTo({ top: 0, behavior: "smooth" }); }, 10);
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 10);
   }
   // carga shares si procede
   maybeLoadShares(listId);
 }
 
-function closeListDetail(){
+function closeListDetail() {
   state.currentListId = null;
   const detail = $("#listDetail");
   if (detail) detail.hidden = true;
@@ -1269,15 +1360,17 @@ function closeListDetail(){
   if (listsIsMobile()) setListsView("home");
 }
 
-function openListsCreateModal(){
+function openListsCreateModal() {
   const ov = $("#listsOverlay");
   const modal = $("#listCreateModal");
   if (!ov || !modal) return;
   ov.hidden = false;
   modal.hidden = false;
-  setTimeout(()=>{ $("#newListTitle")?.focus(); }, 40);
+  setTimeout(() => {
+    $("#newListTitle")?.focus();
+  }, 40);
 }
-function closeListsCreateModal(){
+function closeListsCreateModal() {
   const ov = $("#listsOverlay");
   const modal = $("#listCreateModal");
   if (!ov || !modal) return;
@@ -1285,19 +1378,22 @@ function closeListsCreateModal(){
   modal.hidden = true;
 }
 
-async function createList(){
+async function createList() {
   const title = ($("#newListTitle")?.value || "").trim();
   const vis = ($("#newListVisibility")?.value || "private");
-  if (!title) return toast("Pon un nombre a la lista.", "warn");
-  if (!cloudIsReady()) return toast("Inicia sesión para usar Listas en la nube.", "warn");
+  if (!title) return toast({ title: "Listas", message: "Pon un nombre a la lista.", type: "warn" });
+
+  const sb = await initSupabaseClient();
+  const authUid = sb ? await cloudGetAuthUid(sb) : null;
+  if (!authUid) return toast({ title: "Listas", message: "Inicia sesión para usar Listas en la nube.", type: "warn" });
 
   const list = normalizeList({
     id: uid(),
     title,
     visibility: vis,
-    ownerId: cloudUserId,
+    ownerId: authUid,
     createdAt: Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
   });
 
   state.lists = [...(state.lists || []), list];
@@ -1307,19 +1403,19 @@ async function createList(){
   $("#newListTitle").value = "";
   cloudScheduleSync();
   openList(list.id);
-  toast("Lista creada.", "ok");
+  toast({ title: "Listas", message: "Lista creada.", type: "ok" });
 }
 
-function addListItem(){
+function addListItem() {
   const listId = state.currentListId;
   if (!listId) return;
   const txt = ($("#listItemInput")?.value || "").trim();
   if (!txt) return;
-  const it = normalizeListItem({ id: uid(), text: txt, done:false, createdAt: Date.now(), updatedAt: Date.now() });
+  const it = normalizeListItem({ id: uid(), text: txt, done: false, createdAt: Date.now(), updatedAt: Date.now() });
   const arr = ensureListItems(listId);
   arr.push(it);
   // bump list updated
-  const l = (state.lists || []).find(x=>x.id===listId);
+  const l = (state.lists || []).find((x) => x.id === listId);
   if (l) l.updatedAt = Date.now();
   save();
   $("#listItemInput").value = "";
@@ -1327,29 +1423,29 @@ function addListItem(){
   renderListDetail();
 }
 
-function deleteListItem(listId, itemId, opts){
+function deleteListItem(listId, itemId, opts) {
   const o = Object.assign({ render: true }, opts || {});
   const arr = ensureListItems(listId);
-  const idx = arr.findIndex(x=>x.id===itemId);
+  const idx = arr.findIndex((x) => x.id === itemId);
   if (idx === -1) return;
-  arr.splice(idx,1);
+  arr.splice(idx, 1);
   cloudMarkDeleted(CLOUD.delListItemsKey, itemId);
-  const l = (state.lists || []).find(x=>x.id===listId);
+  const l = (state.lists || []).find((x) => x.id === listId);
   if (l) l.updatedAt = Date.now();
   save();
   cloudScheduleSync();
   if (o.render) renderListDetail();
 }
 
-function deleteCurrentList(){
+function deleteCurrentList() {
   const listId = state.currentListId;
-  const l = (state.lists || []).find(x=>x.id===listId);
+  const l = (state.lists || []).find((x) => x.id === listId);
   if (!l) return;
-  if (!listIsOwner(l)) return toast("Solo el dueño puede eliminar la lista.", "warn");
+  if (!listIsOwner(l)) return toast({ title: "Listas", message: "Solo el dueño puede eliminar la lista.", type: "warn" });
   if (!confirm("¿Eliminar esta lista y sus items?")) return;
 
   // UI-first: remove locally now
-  state.lists = (state.lists || []).filter(x=>x.id!==listId);
+  state.lists = (state.lists || []).filter((x) => x.id !== listId);
   delete state.listItems[listId];
   state.currentListId = null;
   save();
@@ -1357,20 +1453,24 @@ function deleteCurrentList(){
   // go back to list view
   closeListDetail();
   renderLists();
-  toast("Lista eliminada.", "ok");
+  toast({ title: "Listas", message: "Lista eliminada.", type: "ok" });
 
   // Cloud: delete now if possible, else mark for later
-  if (cloudIsReady()){
-    (async ()=>{
-      try{
+  if (cloudIsReady()) {
+    (async () => {
+      try {
         const sb = supabaseClient;
+        const authUid = await cloudGetAuthUid(sb);
+        if (!authUid) throw new Error("no auth user");
+
         // delete shares first (FK-like)
         await sb.from(CLOUD.listSharesTable).delete().eq("list_id", listId);
         await sb.from(CLOUD.listItemsTable).delete().eq("list_id", listId);
-        await sb.from(CLOUD.listsTable).delete().eq("user_id", cloudUserId).eq("list_id", listId);
+        await sb.from(CLOUD.listsTable).delete().eq("user_id", authUid).eq("list_id", listId);
+
         // also clear any pending delete markers for this id
         cloudUnmarkDeleted(CLOUD.delListsKey, listId);
-      }catch(e){
+      } catch (e) {
         console.warn("Cloud delete list", e);
         cloudMarkDeleted(CLOUD.delListsKey, listId);
       }
@@ -1381,69 +1481,74 @@ function deleteCurrentList(){
   }
 }
 
-function cloudUnmarkDeleted(key, id){
+function cloudUnmarkDeleted(key, id) {
   const arr = cloudGetDeleted(key);
-  const next = arr.filter(x=>x!==id);
+  const next = arr.filter((x) => x !== id);
   localStorage.setItem(key, JSON.stringify(next));
 }
 
-
 /* ---- Sharing ---- */
-async function maybeLoadShares(listId){
+async function maybeLoadShares(listId) {
   const panel = $("#listSharePanel");
-  if (panel && !panel.hidden && cloudIsReady()){
+  if (panel && !panel.hidden && cloudIsReady()) {
     await loadShares(listId);
   }
 }
 
-async function loadShares(listId){
+async function loadShares(listId) {
   if (!cloudIsReady()) return;
   const sb = supabaseClient;
   const { data, error } = await sb.from(CLOUD.listSharesTable).select("shared_user_id,created_at").eq("list_id", listId);
-  if (error){ console.warn("Share fetch", error); return; }
-  const ids = (data || []).map(r=>r.shared_user_id).filter(Boolean);
+  if (error) {
+    console.warn("Share fetch", error);
+    return;
+  }
+  const ids = (data || []).map((r) => r.shared_user_id).filter(Boolean);
   let profs = [];
-  if (ids.length){
+  if (ids.length) {
     const pr = await sb.from("profiles").select("id,username,display_name").in("id", ids);
     if (!pr.error) profs = pr.data || [];
   }
-  const map = new Map(profs.map(p=>[p.id,p]));
-  const sharedWith = ids.map(id=>map.get(id)).filter(Boolean).map(p=>({ user_id:p.id, username:p.username, display_name:p.display_name }));
+  const map = new Map(profs.map((p) => [p.id, p]));
+  const sharedWith = ids.map((id) => map.get(id)).filter(Boolean).map((p) => ({ user_id: p.id, username: p.username, display_name: p.display_name }));
   // persist in list object for UI
-  const l = (state.lists || []).find(x=>x.id===listId);
-  if (l){ l.sharedWith = sharedWith; save(); }
+  const l = (state.lists || []).find((x) => x.id === listId);
+  if (l) {
+    l.sharedWith = sharedWith;
+    save();
+  }
   renderShareChips(sharedWith, listId);
 }
 
-function renderShareChips(sharedWith, listId){
+function renderShareChips(sharedWith, listId) {
   const chips = $("#shareChips");
   if (!chips) return;
   chips.innerHTML = "";
-  if (!sharedWith?.length){
+  if (!sharedWith?.length) {
     chips.innerHTML = `<span class="muted">Aún no hay usuarios añadidos.</span>`;
     return;
   }
-  for (const u of sharedWith){
+  for (const u of sharedWith) {
     const el = document.createElement("button");
-    el.type="button";
-    el.className="chip";
-    el.textContent = (u.display_name || u.username || "usuario");
+    el.type = "button";
+    el.className = "chip";
+    el.textContent = u.display_name || u.username || "usuario";
     el.title = u.username || "";
-    el.addEventListener("click", async ()=>{
+    el.addEventListener("click", async () => {
       if (!confirm("Quitar acceso a este usuario?")) return;
       await removeShare(listId, u.user_id);
       await loadShares(listId);
-      toast("Acceso quitado.", "ok");
+      toast({ title: "Listas", message: "Acceso quitado.", type: "ok" });
     });
     chips.appendChild(el);
   }
 }
 
-async function addShare(){
+async function addShare() {
   const listId = state.currentListId;
-  const l = (state.lists || []).find(x=>x.id===listId);
+  const l = (state.lists || []).find((x) => x.id === listId);
   if (!listId || !l) return;
-  if (!listIsOwner(l)) return toast("Solo el dueño puede compartir.", "warn");
+  if (!listIsOwner(l)) return toast({ title: "Listas", message: "Solo el dueño puede compartir.", type: "warn" });
   if (!cloudIsReady()) return;
 
   const uname = ($("#shareUsername")?.value || "").trim();
@@ -1451,33 +1556,36 @@ async function addShare(){
 
   const sb = supabaseClient;
   const { data: prof, error: perr } = await sb.from("profiles").select("id,username,display_name").eq("username", uname).maybeSingle();
-  if (perr || !prof){ return toast("Usuario no encontrado.", "warn"); }
+  if (perr || !prof) return toast({ title: "Listas", message: "Usuario no encontrado.", type: "warn" });
 
   const { error } = await sb.from(CLOUD.listSharesTable).upsert({ list_id: listId, shared_user_id: prof.id }, { onConflict: "list_id,shared_user_id" });
-  if (error){ console.warn("Share add", error); return toast("No se pudo compartir.", "warn"); }
+  if (error) {
+    console.warn("Share add", error);
+    return toast({ title: "Listas", message: "No se pudo compartir.", type: "warn" });
+  }
 
-  $("#shareUsername").value="";
+  $("#shareUsername").value = "";
   await loadShares(listId);
-  toast("Compartido.", "ok");
+  toast({ title: "Listas", message: "Compartido.", type: "ok" });
 }
 
-async function removeShare(listId, userId){
+async function removeShare(listId, userId) {
   if (!cloudIsReady()) return;
   const sb = supabaseClient;
   await sb.from(CLOUD.listSharesTable).delete().eq("list_id", listId).eq("shared_user_id", userId);
 }
 
-function toggleSharePanel(){
+function toggleSharePanel() {
   const panel = $("#listSharePanel");
   if (!panel) return;
   panel.hidden = !panel.hidden;
-  if (!panel.hidden){
+  if (!panel.hidden) {
     loadShares(state.currentListId);
-    setTimeout(()=>$("#shareUsername")?.focus(), 60);
+    setTimeout(() => $("#shareUsername")?.focus(), 60);
   }
 }
 
-function bindLists(){
+function bindLists() {
   // por defecto, en móvil mostramos la lista de listas (home)
   if (listsIsMobile()) setListsView("home");
 
@@ -1485,24 +1593,23 @@ function bindLists(){
   if ($("#btnListCreateClose")) $("#btnListCreateClose").addEventListener("click", closeListsCreateModal);
   if ($("#listsOverlay")) $("#listsOverlay").addEventListener("click", closeListsCreateModal);
   if ($("#btnListCreate")) $("#btnListCreate").addEventListener("click", createList);
-  if ($("#newListTitle")) $("#newListTitle").addEventListener("keydown", (e)=>{ if (e.key==="Enter"){ e.preventDefault(); createList(); } });
+  if ($("#newListTitle")) $("#newListTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); createList(); } });
 
   if ($("#btnListItemAdd")) $("#btnListItemAdd").addEventListener("click", addListItem);
-  if ($("#listItemInput")) $("#listItemInput").addEventListener("keydown", (e)=>{ if (e.key==="Enter"){ e.preventDefault(); addListItem(); } });
+  if ($("#listItemInput")) $("#listItemInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addListItem(); } });
 
   if ($("#btnListDelete")) $("#btnListDelete").addEventListener("click", deleteCurrentList);
 
   if ($("#btnListBack")) $("#btnListBack").addEventListener("click", closeListDetail);
 
   if ($("#btnListShare")) $("#btnListShare").addEventListener("click", toggleSharePanel);
-  if ($("#btnListShareClose")) $("#btnListShareClose").addEventListener("click", ()=>{ $("#listSharePanel").hidden = true; });
+  if ($("#btnListShareClose")) $("#btnListShareClose").addEventListener("click", () => { $("#listSharePanel").hidden = true; });
   if ($("#btnShareAdd")) $("#btnShareAdd").addEventListener("click", addShare);
-  if ($("#shareUsername")) $("#shareUsername").addEventListener("keydown", (e)=>{ if (e.key==="Enter"){ e.preventDefault(); addShare(); } });
+  if ($("#shareUsername")) $("#shareUsername").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addShare(); } });
 
   // render initial if tab visible
   renderLists();
 }
-
 
 /* ===================== Timer ===================== */
 let timerTickHandle = null;
@@ -2242,6 +2349,17 @@ function updateTask(id, patch) {
   if (!t) return;
   Object.assign(t, patch);
   normalizeTask(t);
+  markActivity();
+  save();
+  renderAll();
+}
+
+function updateTaskStatus(id, status){
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  t.status = status;
+  t.done = status === "done";
+  t.doneAt = t.done ? (t.doneAt || Date.now()) : null;
   markActivity();
   save();
   renderAll();
