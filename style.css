@@ -2004,3 +2004,97 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
   backdrop-filter: blur(2px);
   z-index: 930;
 }
+
+
+/* ===================== Lists ===================== */
+.listsLayout{
+  display:grid;
+  grid-template-columns: 320px 1fr;
+  gap: 14px;
+  margin-top: 12px;
+}
+.listsSide{
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.03);
+  border-radius: 16px;
+  padding: 12px;
+  min-height: 360px;
+}
+.listsMain{
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.02);
+  border-radius: 16px;
+  padding: 12px;
+  min-height: 360px;
+}
+.listsList{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.listBtn{
+  width:100%;
+  text-align:left;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.02);
+  color: var(--text);
+}
+.listBtn:hover{ background: rgba(255,255,255,.04); }
+.listBtn.active{ outline: 2px solid rgba(99,155,255,.35); }
+.listBtn .meta{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  color: var(--muted);
+  font-size: 12px;
+}
+.listBtn .title{
+  font-weight: 700;
+}
+.listItems{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.listItemRow{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.02);
+}
+.listItemRow .txt{
+  flex:1;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.listItemRow.done .txt{
+  text-decoration: line-through;
+  opacity:.7;
+}
+.listItemRow .mini{
+  display:flex;
+  gap:8px;
+}
+.subCard{
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.02);
+  border-radius: 16px;
+  padding: 12px;
+  margin-top: 12px;
+}
+@media (max-width: 980px), (pointer: coarse){
+  .listsLayout{ grid-template-columns: 1fr; }
+  .listsSide{ min-height: unset; }
+  .listsMain{ min-height: 320px; }
+}
