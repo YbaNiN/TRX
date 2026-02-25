@@ -2002,7 +2002,21 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
   inset:0;
   background: rgba(0,0,0,.45);
   backdrop-filter: blur(2px);
-  z-index: 930;
+  z-index: 9998;
+}
+
+/* Lists: make the create-list modal sit above sticky headers */
+#listCreateModal.modalCard{
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  z-index: 9999;
+  width: min(560px, calc(100vw - 28px));
+  max-height: 85vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 
