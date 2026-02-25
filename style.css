@@ -79,7 +79,7 @@ body{
   display:flex;
   flex-direction:column;
   gap:10px;
-  z-index:1200;
+  z-index:10;
   pointer-events:none;
 }
 .toast{
@@ -2097,4 +2097,23 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
   .listsLayout{ grid-template-columns: 1fr; }
   .listsSide{ min-height: unset; }
   .listsMain{ min-height: 320px; }
+}
+/* === FIX MODAL NUEVA LISTA (z-index) === */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+  z-index: 9998;   /* más alto que el header */
+}
+
+.modalCard {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;   /* por encima del overlay */
+  max-height: 85vh;
+  overflow-y: auto;
 }
