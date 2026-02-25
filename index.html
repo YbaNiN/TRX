@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TRX Panel</title>
-  <link rel="stylesheet" href="style.css?v=27" />
+  <link rel="stylesheet" href="style.css?v=26" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2b6cff" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -227,6 +227,8 @@
           </button>
           <button class="tab" data-tab="agenda" role="tab" aria-selected="false">
             <span class="ic">🗓️</span><span>Agenda</span>
+          </button>          <button class="tab" data-tab="lists" role="tab" aria-selected="false">
+            <span class="ic">📋</span><span>Listas</span>
           </button>
           <button class="tab" data-tab="timer" role="tab" aria-selected="false">
             <span class="ic">⏱</span><span>Temporizador</span>
@@ -508,6 +510,87 @@
           <div id="agendaList" class="agendaList" aria-label="Agenda"></div>
         </div>
       </section>
+      <!-- LISTAS -->
+      <section class="panel" id="lists" role="tabpanel">
+        <div class="card">
+          <div class="row spread">
+            <div>
+              <div class="h2">Listas</div>
+              <div class="muted">Listas privadas y compartidas con otros usuarios.</div>
+            </div>
+            <div class="row compact">
+              <button id="btnListNew" type="button" class="btn primary">+ Nueva lista</button>
+            </div>
+          </div>
+
+          <div class="listsLayout">
+            <aside class="listsSide">
+              <div class="row spread" style="margin-bottom:8px">
+                <div class="h3" style="margin:0">Mis listas</div>
+                <span class="pill" id="listsCount">0</span>
+              </div>
+              <div id="listsList" class="listsList"></div>
+              <div class="muted" id="listsEmptyHint" style="margin-top:10px">Crea una lista para empezar (p.ej. “VIAJE LONDRES”).</div>
+            </aside>
+
+            <div class="listsMain">
+              <div id="listEmpty" class="muted" style="padding:14px">Selecciona una lista para ver su contenido.</div>
+
+              <div id="listDetail" class="listDetail" hidden>
+                <div class="row spread">
+                  <div>
+                    <div class="h2" id="listTitle" style="margin:0">—</div>
+                    <div class="muted" id="listMeta"></div>
+                  </div>
+                  <div class="row compact">
+                    <button id="btnListShare" type="button" class="btn ghost">Compartir</button>
+                    <button id="btnListDelete" type="button" class="btn danger">Eliminar</button>
+                  </div>
+                </div>
+
+                <div id="listSharePanel" class="card subCard" hidden>
+                  <div class="row spread">
+                    <div class="h3" style="margin:0">Compartir lista</div>
+                    <button id="btnListShareClose" type="button" class="btn ghost sm">✕</button>
+                  </div>
+                  <div class="row compact" style="margin-top:8px">
+                    <input id="shareUsername" type="text" placeholder="Usuario (username)..." autocomplete="off" />
+                    <button id="btnShareAdd" type="button" class="btn primary">Añadir</button>
+                  </div>
+                  <div class="muted" style="margin-top:8px">Solo el dueño puede compartir. Los usuarios añadidos podrán verla y editar sus items.</div>
+                  <div id="shareChips" class="chipRow" style="margin-top:10px"></div>
+                </div>
+
+                <div class="row compact" style="margin-top:12px">
+                  <input id="listItemInput" type="text" placeholder="Añadir item..." autocomplete="off" />
+                  <button id="btnListItemAdd" type="button" class="btn primary">Añadir</button>
+                </div>
+
+                <div id="listItems" class="listItems" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- modal nueva lista -->
+          <div id="listsOverlay" class="tasksOverlay" hidden></div>
+          <div id="listCreateModal" class="modalCard" hidden>
+            <div class="row spread">
+              <div class="h3" style="margin:0">Nueva lista</div>
+              <button id="btnListCreateClose" type="button" class="btn ghost sm">✕</button>
+            </div>
+            <div class="row" style="margin-top:10px">
+              <input id="newListTitle" type="text" placeholder="Nombre (p.ej. VIAJE LONDRES)" autocomplete="off" />
+              <select id="newListVisibility" aria-label="Visibilidad">
+                <option value="private" selected>Privada (solo tú)</option>
+                <option value="shared">Compartida (solo invitados)</option>
+              </select>
+              <button id="btnListCreate" type="button" class="btn primary">Crear</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
 
 
       <!-- TIMER -->
@@ -768,7 +851,7 @@
 </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=27"></script>
+  <script src="script.js?v=26"></script>
 <!-- Install FAB (Mobile) -->
 <!-- Discord forms modal -->
 <div id="discordFormModal" class="modal" aria-hidden="true">
