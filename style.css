@@ -1912,27 +1912,26 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
   .taskLayout{grid-template-columns: 1fr;}
   /* el panel de crear se convierte en sheet (cerrado por defecto) */
   #taskCreatePanel{
-    display:none;
     position:fixed;
-    left:0;
-    right:0;
-    bottom:0;
-    width:100vw;
-    margin:0;
-    max-height: min(78vh, 560px);
+    left:10px;
+    right:10px;
+    top:10vh;
+    max-height: 80vh;
     overflow:auto;
     -webkit-overflow-scrolling: touch;
-    transform: translateY(120%);
-    transition: transform .18s ease;
-    z-index: 950;
+    padding:12px;
+    border-radius:16px;
+    background: var(--card);
+    border:1px solid var(--border);
     box-shadow: 0 20px 60px rgba(0,0,0,.35);
-    border-radius: 18px 18px 0 0;
-    border-left:0;
-    border-right:0;
-    border-bottom:0;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    opacity:0;
+    transform: translateY(10px);
+    pointer-events:none;
+    transition: opacity .18s ease, transform .18s ease;
+    z-index: 950;
+    display:none; /* hidden unless open */
   }
-  #taskCreatePanel.open{display:block; transform: translateY(0);}
+  #taskCreatePanel.open{display:block; opacity:1; transform: translateY(0); pointer-events:auto;}
 
   /* header del sheet siempre visible */
   #taskCreatePanel .taskCreateHead{
