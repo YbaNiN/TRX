@@ -1190,8 +1190,9 @@ function renderListDetail(){
   $("#btnListShare").style.display = canShare ? "inline-flex" : "none";
   $("#btnListDelete").style.display = canShare ? "inline-flex" : "none";
 
-  // items
-  const items = ensureListItems(listId).map(normalizeListItem);
+  // items (IMPORTANT: keep references to the real objects in state so edits/deletes reflect immediately)
+  const itemsRef = ensureListItems(listId);
+  const items = itemsRef.map(normalizeListItem);
   const itemsBox = $("#listItems");
   itemsBox.innerHTML = "";
   const cols = $("#listCols");
@@ -1200,7 +1201,9 @@ function renderListDetail(){
     itemsBox.innerHTML = `<div class="muted" style="padding:10px">Aún no hay items. Añade el primero arriba.</div>`;
   } else {
     if (cols) cols.style.display = "grid";
-    for (const it of items){
+    for (let i = 0; i < items.length; i++){
+      const it = items[i];
+      const ref = itemsRef[i];
       const row = document.createElement("div");
       row.className = "listItemRow" + (it.done ? " done":"");
       row.innerHTML = `
@@ -1212,19 +1215,24 @@ function renderListDetail(){
         </div>
       `;
       row.querySelector(".chk").addEventListener("change", (e)=>{
-        it.done = !!e.target.checked;
-        it.updatedAt = Date.now();
+        // update the real state object
+        ref.done = !!e.target.checked;
+        ref.updatedAt = Date.now();
         save(); cloudScheduleSync();
         renderListDetail();
       });
       row.querySelector('[data-act="del"]').addEventListener("click", ()=>{
-        deleteListItem(listId, it.id);
+        // Optimistic UI: remove from DOM immediately, then update state + cloud.
+        row.remove();
+        deleteListItem(listId, ref.id, { render: false });
+        // If we removed the last row, re-render to show the empty hint.
+        if (!ensureListItems(listId).length) renderListDetail();
       });
       row.querySelector('[data-act="edit"]').addEventListener("click", ()=>{
-        const t = prompt("Editar item", it.text);
+        const t = prompt("Editar item", ref.text);
         if (t === null) return;
-        it.text = String(t || "").trim();
-        it.updatedAt = Date.now();
+        ref.text = String(t || "").trim();
+        ref.updatedAt = Date.now();
         save(); cloudScheduleSync();
         renderListDetail();
       });
@@ -1316,7 +1324,8 @@ function addListItem(){
   renderListDetail();
 }
 
-function deleteListItem(listId, itemId){
+function deleteListItem(listId, itemId, opts){
+  const o = Object.assign({ render: true }, opts || {});
   const arr = ensureListItems(listId);
   const idx = arr.findIndex(x=>x.id===itemId);
   if (idx === -1) return;
@@ -1326,7 +1335,7 @@ function deleteListItem(listId, itemId){
   if (l) l.updatedAt = Date.now();
   save();
   cloudScheduleSync();
-  renderListDetail();
+  if (o.render) renderListDetail();
 }
 
 function deleteCurrentList(){
