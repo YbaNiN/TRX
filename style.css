@@ -79,7 +79,7 @@ body{
   display:flex;
   flex-direction:column;
   gap:10px;
-  z-index:10;
+  z-index:1200;
   pointer-events:none;
 }
 .toast{
@@ -2097,23 +2097,9 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
   .listsLayout{ grid-template-columns: 1fr; }
   .listsSide{ min-height: unset; }
   .listsMain{ min-height: 320px; }
-}
-/* === FIX MODAL NUEVA LISTA (z-index) === */
 
-.modalOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(6px);
-  z-index: 9998;   /* más alto que el header */
-}
-
-.modalCard {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 9999;   /* por encima del overlay */
-  max-height: 85vh;
-  overflow-y: auto;
+  /* En móvil: entrar en una lista abre una "pantalla" de detalle.
+     Home = solo listado de listas. Detail = solo contenido de la lista. */
+  #lists[data-view="home"] .listsMain{ display:none; }
+  #lists[data-view="detail"] .listsSide{ display:none; }
 }
