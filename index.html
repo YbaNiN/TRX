@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TRX Panel</title>
-  <link rel="stylesheet" href="style.css?v=34" />
+  <link rel="stylesheet" href="style.css?v=29" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2b6cff" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -540,9 +540,13 @@
                 <div class="row spread">
                   <div>
                     <button id="btnListBack" type="button" class="btn ghost sm onlyMobile" style="margin-bottom:8px">← Volver</button>
-                    <div class="h2" id="listTitle" style="margin:0">—</div>
+                    <div class="playlistHeadRow">
+                      <div class="playlistCover" aria-hidden="true">📋</div>
+                      <div>
+                        <div class="h2" id="listTitle" style="margin:0">—</div>
                     <div class="muted" id="listMeta"></div>
-                  </div>
+                      </div>
+                    </div>
                   <div class="row compact">
                     <button id="btnListShare" type="button" class="btn ghost">Compartir</button>
                     <button id="btnListDelete" type="button" class="btn danger">Eliminar</button>
@@ -567,6 +571,7 @@
                   <button id="btnListItemAdd" type="button" class="btn primary">Añadir</button>
                 </div>
 
+                <div class="playlistCols" id="listCols" aria-hidden="true"><span>✓</span><span>Item</span><span>Acciones</span></div>
                 <div id="listItems" class="listItems" style="margin-top:12px"></div>
               </div>
             </div>
@@ -852,7 +857,7 @@
 </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=34"></script>
+  <script src="script.js?v=29"></script>
 <!-- Install FAB (Mobile) -->
 <!-- Discord forms modal -->
 <div id="discordFormModal" class="modal" aria-hidden="true">
