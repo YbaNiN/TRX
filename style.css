@@ -2019,6 +2019,17 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
   -webkit-overflow-scrolling: touch;
 }
 
+/* Darker create-list modal for better contrast */
+#listCreateModal.modalCard{
+  background: linear-gradient(180deg, rgba(0,0,0,.62), rgba(0,0,0,.42));
+  border-color: rgba(255,255,255,.10);
+}
+#listsOverlay{
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(4px);
+}
+
+
 
 /* ===================== Lists ===================== */
 .listsLayout{
