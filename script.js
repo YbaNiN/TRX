@@ -1194,9 +1194,12 @@ function renderListDetail(){
   const items = ensureListItems(listId).map(normalizeListItem);
   const itemsBox = $("#listItems");
   itemsBox.innerHTML = "";
+  const cols = $("#listCols");
   if (!items.length){
+    if (cols) cols.style.display = "none";
     itemsBox.innerHTML = `<div class="muted" style="padding:10px">Aún no hay items. Añade el primero arriba.</div>`;
   } else {
+    if (cols) cols.style.display = "grid";
     for (const it of items){
       const row = document.createElement("div");
       row.className = "listItemRow" + (it.done ? " done":"");
@@ -1244,8 +1247,15 @@ function openList(listId){
 }
 
 function closeListDetail(){
-  if (!listsIsMobile()) return;
-  setListsView("home");
+  state.currentListId = null;
+  const detail = $("#listDetail");
+  if (detail) detail.hidden = true;
+  const empty = $("#listEmpty");
+  if (empty) empty.style.display = "";
+  const sharePanel = $("#listSharePanel");
+  if (sharePanel) sharePanel.hidden = true;
+
+  if (listsIsMobile()) setListsView("home");
 }
 
 function openListsCreateModal(){
@@ -1326,21 +1336,45 @@ function deleteCurrentList(){
   if (!listIsOwner(l)) return toast("Solo el dueño puede eliminar la lista.", "warn");
   if (!confirm("¿Eliminar esta lista y sus items?")) return;
 
-  // mark deleted in cloud
-  cloudMarkDeleted(CLOUD.delListsKey, listId);
-  // mark items deleted too
-  for (const it of (ensureListItems(listId) || [])){
-    cloudMarkDeleted(CLOUD.delListItemsKey, it.id);
-  }
-
+  // UI-first: remove locally now
   state.lists = (state.lists || []).filter(x=>x.id!==listId);
   delete state.listItems[listId];
   state.currentListId = null;
   save();
-  cloudScheduleSync();
+
+  // go back to list view
+  closeListDetail();
   renderLists();
   toast("Lista eliminada.", "ok");
+
+  // Cloud: delete now if possible, else mark for later
+  if (cloudIsReady()){
+    (async ()=>{
+      try{
+        const sb = supabaseClient;
+        // delete shares first (FK-like)
+        await sb.from(CLOUD.listSharesTable).delete().eq("list_id", listId);
+        await sb.from(CLOUD.listItemsTable).delete().eq("list_id", listId);
+        await sb.from(CLOUD.listsTable).delete().eq("user_id", cloudUserId).eq("list_id", listId);
+        // also clear any pending delete markers for this id
+        cloudUnmarkDeleted(CLOUD.delListsKey, listId);
+      }catch(e){
+        console.warn("Cloud delete list", e);
+        cloudMarkDeleted(CLOUD.delListsKey, listId);
+      }
+      cloudScheduleSync();
+    })();
+  } else {
+    cloudMarkDeleted(CLOUD.delListsKey, listId);
+  }
 }
+
+function cloudUnmarkDeleted(key, id){
+  const arr = cloudGetDeleted(key);
+  const next = arr.filter(x=>x!==id);
+  localStorage.setItem(key, JSON.stringify(next));
+}
+
 
 /* ---- Sharing ---- */
 async function maybeLoadShares(listId){
