@@ -14,6 +14,16 @@ const LS = {
 const SUPABASE_URL = "https://hfduuucvknucjhrtodpt.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_HpAVTQ7Op6b2Cjnp9rBdrg_RmZrDJ9F";
 let supabaseClient = null;
+let cloudUserId = null;
+let cloudSyncTimer = null;
+const CLOUD = {
+  tasksTable: "trx_tasks",
+  notesTable: "trx_notes",
+  delTasksKey: "trx_cloud_deleted_tasks_v1",
+  delNotesKey: "trx_cloud_deleted_notes_v1",
+  syncDebounceMs: 1200,
+};
+
 let authUiMode = "login"; // login | register
 
 const $ = (s) => document.querySelector(s);
@@ -263,6 +273,118 @@ function save() {
   localStorage.setItem("trx_view_v1", state.view);
   if (state.agendaRange) localStorage.setItem("trx_agenda_range_v1", state.agendaRange);
   localStorage.setItem(LS.timer, JSON.stringify(state.timer || null));
+  try { cloudScheduleSync(); } catch {}
+}
+
+/* ===================== Cloud Sync (Supabase) ===================== */
+function cloudSetUser(user){
+  cloudUserId = user?.id || null;
+}
+
+function cloudIsReady(){
+  return !!(cloudUserId && supabaseClient);
+}
+
+function cloudGetDeleted(key){
+  try {
+    const raw = localStorage.getItem(key);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+function cloudAddDeleted(key, id){
+  if (!id) return;
+  const arr = cloudGetDeleted(key);
+  if (!arr.includes(id)) arr.push(id);
+  localStorage.setItem(key, JSON.stringify(arr));
+}
+function cloudClearDeleted(key){
+  localStorage.setItem(key, JSON.stringify([]));
+}
+
+function cloudScheduleSync(){
+  if (!cloudIsReady()) return;
+  if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(() => {
+    cloudSyncTimer = null;
+    cloudSyncAll().catch(e => console.warn("cloudSyncAll error", e));
+  }, CLOUD.syncDebounceMs);
+}
+
+async function cloudBootstrap(){
+  if (!cloudIsReady()) return;
+  const sb = supabaseClient;
+  // 1) Load server data
+  const [tasksRes, notesRes] = await Promise.all([
+    sb.from(CLOUD.tasksTable).select("task_id,data,deleted,updated_at").eq("user_id", cloudUserId),
+    sb.from(CLOUD.notesTable).select("note_id,data,deleted,updated_at").eq("user_id", cloudUserId),
+  ]);
+  if (tasksRes.error) console.warn("Cloud tasks fetch", tasksRes.error);
+  if (notesRes.error) console.warn("Cloud notes fetch", notesRes.error);
+
+  const serverTasks = (tasksRes.data || []).filter(r => !r.deleted && r.data).map(r => r.data);
+  const serverNotes = (notesRes.data || []).filter(r => !r.deleted && r.data).map(r => r.data);
+
+  // 2) Merge (server overlays local by id)
+  const tMap = new Map((state.tasks || []).map(t => [t.id, t]));
+  for (const t of serverTasks) tMap.set(t.id, normalizeTask(t));
+  state.tasks = [...tMap.values()];
+
+  const nMap = new Map((state.notes || []).map(n => [n.id, n]));
+  for (const n of serverNotes) nMap.set(n.id, n);
+  state.notes = [...nMap.values()];
+
+  save();
+  renderAll();
+
+  // 3) Push any local-only data
+  cloudScheduleSync();
+}
+
+async function cloudSyncAll(){
+  if (!cloudIsReady()) return;
+  const sb = supabaseClient;
+
+  // Upsert tasks
+  const taskRows = (state.tasks || []).map(t => ({
+    user_id: cloudUserId,
+    task_id: t.id,
+    data: t,
+    deleted: false,
+    updated_at: new Date().toISOString()
+  }));
+  if (taskRows.length){
+    const { error } = await sb.from(CLOUD.tasksTable).upsert(taskRows, { onConflict: "user_id,task_id" });
+    if (error) console.warn("Cloud tasks upsert", error);
+  }
+
+  // Upsert notes
+  const noteRows = (state.notes || []).map(n => ({
+    user_id: cloudUserId,
+    note_id: n.id,
+    data: n,
+    deleted: false,
+    updated_at: new Date().toISOString()
+  }));
+  if (noteRows.length){
+    const { error } = await sb.from(CLOUD.notesTable).upsert(noteRows, { onConflict: "user_id,note_id" });
+    if (error) console.warn("Cloud notes upsert", error);
+  }
+
+  // Deletes (hard delete)
+  const delTasks = cloudGetDeleted(CLOUD.delTasksKey);
+  if (delTasks.length){
+    const { error } = await sb.from(CLOUD.tasksTable).delete().eq("user_id", cloudUserId).in("task_id", delTasks);
+    if (error) console.warn("Cloud tasks delete", error);
+    else cloudClearDeleted(CLOUD.delTasksKey);
+  }
+
+  const delNotes = cloudGetDeleted(CLOUD.delNotesKey);
+  if (delNotes.length){
+    const { error } = await sb.from(CLOUD.notesTable).delete().eq("user_id", cloudUserId).in("note_id", delNotes);
+    if (error) console.warn("Cloud notes delete", error);
+    else cloudClearDeleted(CLOUD.delNotesKey);
+  }
 }
 
 /* ===================== Theme + Density ===================== */
@@ -707,6 +829,7 @@ async function applySupabaseSession(user, opts = {}){
   if (!user) return false;
   const profile = await fetchProfileForUser(user);
   setSession(profile.username, profile.role, user.email || "");
+  try { cloudSetUser(user); cloudBootstrap(); } catch {}
   if (opts.toastMessage) {
     toast({ title:"Bienvenido", message: opts.toastMessage, type:"ok" });
   }
@@ -791,6 +914,8 @@ async function clearSession() {
     console.warn("Supabase signOut error", e);
   }
   state.session = null;
+  cloudUserId = null;
+  if (cloudSyncTimer) { clearTimeout(cloudSyncTimer); cloudSyncTimer = null; }
   localStorage.removeItem(LS.session);
   $("#who").textContent = "";
   showGate(true);
@@ -1633,6 +1758,7 @@ function updateTask(id, patch) {
 function deleteTask(id) {
   const t = state.tasks.find(x => x.id === id);
   state.tasks = state.tasks.filter(x => x.id !== id);
+  try { if (cloudIsReady()) cloudAddDeleted(CLOUD.delTasksKey, id); } catch {}
   markActivity();
   save();
   renderAll();
@@ -2022,6 +2148,7 @@ function togglePinNote(id){
 
 function deleteNote(id){
   state.notes = state.notes.filter(x=>x.id!==id);
+  try { if (cloudIsReady()) cloudAddDeleted(CLOUD.delNotesKey, id); } catch {}
   save();
   renderNotes();
 }
