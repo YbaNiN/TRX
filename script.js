@@ -1123,6 +1123,15 @@ function ensureListItems(listId){
   return state.listItems[listId];
 }
 
+function listsIsMobile(){
+  try{ return window.matchMedia("(max-width: 980px), (pointer: coarse)").matches; }
+  catch{ return window.innerWidth <= 980; }
+}
+function setListsView(view){
+  const sec = $("#lists");
+  if (sec) sec.dataset.view = view;
+}
+
 function renderLists(){
   const box = $("#listsList");
   if (!box) return;
@@ -1157,6 +1166,7 @@ function renderLists(){
     state.currentListId = null;
     $("#listDetail") && ($("#listDetail").hidden = true);
     $("#listEmpty") && ($("#listEmpty").style.display = "block");
+    if (listsIsMobile()) setListsView("home");
   } else {
     // refresca detalle
     renderListDetail();
@@ -1224,8 +1234,18 @@ function openList(listId){
   state.currentListId = listId;
   save();
   renderLists();
+  if (listsIsMobile()){
+    setListsView("detail");
+    // asegura que el usuario ve el detalle arriba
+    setTimeout(()=>{ window.scrollTo({ top: 0, behavior: "smooth" }); }, 10);
+  }
   // carga shares si procede
   maybeLoadShares(listId);
+}
+
+function closeListDetail(){
+  if (!listsIsMobile()) return;
+  setListsView("home");
 }
 
 function openListsCreateModal(){
@@ -1412,6 +1432,9 @@ function toggleSharePanel(){
 }
 
 function bindLists(){
+  // por defecto, en móvil mostramos la lista de listas (home)
+  if (listsIsMobile()) setListsView("home");
+
   if ($("#btnListNew")) $("#btnListNew").addEventListener("click", openListsCreateModal);
   if ($("#btnListCreateClose")) $("#btnListCreateClose").addEventListener("click", closeListsCreateModal);
   if ($("#listsOverlay")) $("#listsOverlay").addEventListener("click", closeListsCreateModal);
@@ -1422,6 +1445,8 @@ function bindLists(){
   if ($("#listItemInput")) $("#listItemInput").addEventListener("keydown", (e)=>{ if (e.key==="Enter"){ e.preventDefault(); addListItem(); } });
 
   if ($("#btnListDelete")) $("#btnListDelete").addEventListener("click", deleteCurrentList);
+
+  if ($("#btnListBack")) $("#btnListBack").addEventListener("click", closeListDetail);
 
   if ($("#btnListShare")) $("#btnListShare").addEventListener("click", toggleSharePanel);
   if ($("#btnListShareClose")) $("#btnListShareClose").addEventListener("click", ()=>{ $("#listSharePanel").hidden = true; });
