@@ -2117,3 +2117,85 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
   #lists[data-view="home"] .listsMain{ display:none; }
   #lists[data-view="detail"] .listsSide{ display:none; }
 }
+
+
+/* ===== Lists: playlist-like detail ===== */
+.listDetail { padding-top: 6px; }
+.playlistHeadRow{
+  display:flex;
+  gap:12px;
+  align-items:center;
+}
+.playlistCover{
+  width:54px;
+  height:54px;
+  border-radius:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25) inset;
+}
+
+.playlistCols{
+  display:grid;
+  grid-template-columns: 28px 1fr 92px;
+  gap:10px;
+  padding:10px 12px;
+  margin-top:14px;
+  border-radius:14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.6);
+  font-size: 12px;
+}
+.playlistCols span:first-child{ text-align:center; }
+
+.listItems{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.listItemRow{
+  display:grid;
+  grid-template-columns: 28px 1fr 92px;
+  gap:10px;
+  align-items:center;
+  padding:12px 12px;
+  border-radius:14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.listItemRow .idx{
+  text-align:center;
+  color: rgba(255,255,255,0.55);
+  font-size: 12px;
+}
+.listItemRow .txt{
+  font-weight: 600;
+}
+.listItemRow.done .txt{
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+.listItemRow .mini{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+}
+.listItemRow .chk{ width:18px; height:18px; margin:0 auto; }
+
+@media (max-width: 980px), (pointer: coarse) {
+  /* make list detail feel like a separate screen */
+  #lists[data-view="detail"] .listsSide{ display:none; }
+  #lists[data-view="detail"] .listsMain{ width:100%; }
+  .playlistCols{ grid-template-columns: 22px 1fr 86px; }
+  .listItemRow{ grid-template-columns: 22px 1fr 86px; }
+}
+
+/* Ensure lists modal overlays everything */
+#listsOverlay{ position: fixed; inset:0; z-index: 9998; }
+#listCreateModal{ position: fixed; z-index: 9999; }
