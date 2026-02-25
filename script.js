@@ -338,9 +338,9 @@ function cloudSetUser(user) {
 // Helper: SIEMPRE usa el UID real de la sesión (evita 403 por des-sync de cloudUserId)
 async function cloudGetAuthUid(sb) {
   try {
-    const { data: { user }, error } = await sb.auth.getUser();
+    const { data, error } = await sb.auth.getSession();
     if (error) return null;
-    return user?.id || null;
+    return data?.session?.user?.id || null;
   } catch {
     return null;
   }
@@ -391,10 +391,10 @@ async function cloudBootstrap() {
 
   // 1) Load server data
   const [tasksRes, notesRes, listsRes] = await Promise.all([
-    sb.from(CLOUD.tasksTable).select("task_id,data,deleted,updated_at").eq("user_id", authUid),
-    sb.from(CLOUD.notesTable).select("note_id,data,deleted,updated_at").eq("user_id", authUid),
-    sb.from(CLOUD.listsTable).select("user_id,list_id,data,deleted,updated_at").eq("user_id", authUid),
-  ]);
+  sb.from(CLOUD.tasksTable).select("task_id,data,deleted,updated_at").eq("user_id", authUid),
+  sb.from(CLOUD.notesTable).select("note_id,data,deleted,updated_at").eq("user_id", authUid),
+  sb.from(CLOUD.listsTable).select("user_id,list_id,data,deleted,updated_at"), // 👈 sin eq
+]);
 
   if (tasksRes.error) console.warn("Cloud tasks fetch", tasksRes.error);
   if (notesRes.error) console.warn("Cloud notes fetch", notesRes.error);
@@ -472,28 +472,35 @@ async function cloudSyncAll() {
     updated_at: new Date().toISOString(),
   }));
   if (listRows.length) {
-    const res = await sb.from(CLOUD.listsTable).upsert(listRows, { onConflict: "user_id,list_id" }).select("user_id,list_id");
+    const res = await sb.from(CLOUD.listsTable).upsert(listRows, { onConflict: "user_id,list_id" });
     if (res.error) console.warn("Cloud lists upsert", res.error);
   }
 
   // Upsert list items
   // ✅ OJO: tu tabla trx_list_items NO tiene user_id. No lo envíes.
-  const itemsFlat = [];
-  for (const [lid, arr] of Object.entries(state.listItems || {})) {
-    for (const it of arr || []) {
-      itemsFlat.push({
-        list_id: lid,
-        item_id: it.id,
-        data: it,
-        deleted: false,
-        updated_at: new Date().toISOString(),
-      });
-    }
+  const listIdsKnown = new Set((state.lists || []).map(l => l.id));
+
+const itemsFlat = [];
+for (const [lid, arr] of Object.entries(state.listItems || {})) {
+  if (!listIdsKnown.has(lid)) continue; // 👈 evita items huérfanos (RLS fail)
+  for (const it of (arr || [])) {
+    itemsFlat.push({
+      list_id: lid,
+      item_id: it.id,
+      data: it,
+      deleted: false,
+      updated_at: new Date().toISOString(),
+    });
   }
-  if (itemsFlat.length) {
-    const { error } = await sb.from(CLOUD.listItemsTable).upsert(itemsFlat, { onConflict: "list_id,item_id" });
-    if (error) console.warn("Cloud list items upsert", error);
-  }
+}
+
+if (itemsFlat.length) {
+  const { error } = await sb
+    .from(CLOUD.listItemsTable)
+    .upsert(itemsFlat, { onConflict: "list_id,item_id" });
+
+  if (error) console.warn("Cloud list items upsert", error);
+}
 
   // Deletes (hard delete)
   const delTasks = cloudGetDeleted(CLOUD.delTasksKey);
@@ -1456,29 +1463,36 @@ function deleteCurrentList() {
   toast({ title: "Listas", message: "Lista eliminada.", type: "ok" });
 
   // Cloud: delete now if possible, else mark for later
-  if (cloudIsReady()) {
-    (async () => {
-      try {
-        const sb = supabaseClient;
-        const authUid = await cloudGetAuthUid(sb);
-        if (!authUid) throw new Error("no auth user");
+  // Cloud: delete now if possible, else mark for later
+if (cloudIsReady()) {
+  (async () => {
+    try {
+      const sb = supabaseClient;
+      const authUid = await cloudGetAuthUid(sb);
+      if (!authUid) throw new Error("no auth user");
 
-        // delete shares first (FK-like)
-        await sb.from(CLOUD.listSharesTable).delete().eq("list_id", listId);
-        await sb.from(CLOUD.listItemsTable).delete().eq("list_id", listId);
-        await sb.from(CLOUD.listsTable).delete().eq("user_id", authUid).eq("list_id", listId);
+      // delete shares first (FK-like)
+      await sb.from(CLOUD.listSharesTable).delete().eq("list_id", listId);
+      await sb.from(CLOUD.listItemsTable).delete().eq("list_id", listId);
+      const { error } = await sb
+        .from(CLOUD.listsTable)
+        .delete()
+        .eq("user_id", authUid)
+        .eq("list_id", listId);
 
-        // also clear any pending delete markers for this id
-        cloudUnmarkDeleted(CLOUD.delListsKey, listId);
-      } catch (e) {
-        console.warn("Cloud delete list", e);
-        cloudMarkDeleted(CLOUD.delListsKey, listId);
-      }
-      cloudScheduleSync();
-    })();
-  } else {
-    cloudMarkDeleted(CLOUD.delListsKey, listId);
-  }
+      if (error) console.warn("Cloud delete list", error);
+
+      // also clear any pending delete markers for this id
+      cloudUnmarkDeleted(CLOUD.delListsKey, listId);
+    } catch (e) {
+      console.warn("Cloud delete list", e);
+      cloudMarkDeleted(CLOUD.delListsKey, listId);
+    }
+    cloudScheduleSync();
+  })();
+} else {
+  cloudMarkDeleted(CLOUD.delListsKey, listId);
+}
 }
 
 function cloudUnmarkDeleted(key, id) {
