@@ -332,7 +332,9 @@ async function cloudBootstrap(){
   const [tasksRes, notesRes, listsRes] = await Promise.all([
     sb.from(CLOUD.tasksTable).select("task_id,data,deleted,updated_at").eq("user_id", cloudUserId),
     sb.from(CLOUD.notesTable).select("note_id,data,deleted,updated_at").eq("user_id", cloudUserId),
-    sb.from(CLOUD.listsTable).select("user_id,list_id,data,deleted,updated_at"),
+    sb.from(CLOUD.listsTable)
+    .select("user_id,list_id,data,deleted,updated_at")
+    .eq("user_id", cloudUserId),
   ]);
   if (tasksRes.error) console.warn("Cloud tasks fetch", tasksRes.error);
   if (notesRes.error) console.warn("Cloud notes fetch", notesRes.error);
@@ -411,7 +413,8 @@ async function cloudSyncAll(){
   const itemsFlat = [];
   for (const [lid, arr] of Object.entries(state.listItems || {})) {
     for (const it of (arr || [])) {
-      itemsFlat.push({
+        itemsFlat.push({
+        user_id: cloudUserId,
         list_id: lid,
         item_id: it.id,
         data: it,
