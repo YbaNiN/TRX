@@ -347,7 +347,7 @@ async function cloudGetAuthUid(sb) {
 }
 
 function cloudIsReady() {
-  return !!supabaseClient;
+  return !!(supabaseClient && cloudUserId);
 }
 
 function cloudGetDeleted(key) {
