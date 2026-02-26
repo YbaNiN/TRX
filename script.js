@@ -464,17 +464,24 @@ async function cloudSyncAll() {
   }
 
   // Upsert lists
-  const listRows = (state.lists || []).map((l) => ({
+  // Upsert lists (SOLO listas propias; evita 403 con listas compartidas)
+const listRows = (state.lists || [])
+  .filter((l) => {
+    // Si tiene ownerId y no soy yo => lista compartida => NO escribir en trx_lists
+    return !l.ownerId || l.ownerId === authUid;
+  })
+  .map((l) => ({
     user_id: authUid, // ✅ usa auth.uid real para pasar RLS
     list_id: l.id,
     data: l,
     deleted: false,
     updated_at: new Date().toISOString(),
   }));
-  if (listRows.length) {
-    const res = await sb.from(CLOUD.listsTable).upsert(listRows, { onConflict: "user_id,list_id" });
-    if (res.error) console.warn("Cloud lists upsert", res.error);
-  }
+
+if (listRows.length) {
+  const res = await sb.from(CLOUD.listsTable).upsert(listRows, { onConflict: "user_id,list_id" });
+  if (res.error) console.warn("Cloud lists upsert", res.error);
+}
 
   // Upsert list items
   // ✅ OJO: tu tabla trx_list_items NO tiene user_id. No lo envíes.
