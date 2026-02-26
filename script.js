@@ -463,15 +463,11 @@ async function cloudSyncAll() {
     if (error) console.warn("Cloud notes upsert", error);
   }
 
-  // Upsert lists
   // Upsert lists (SOLO listas propias; evita 403 con listas compartidas)
-const listRows = (state.lists || [])
-  .filter((l) => {
-    // Si tiene ownerId y no soy yo => lista compartida => NO escribir en trx_lists
-    return !l.ownerId || l.ownerId === authUid;
-  })
+  const listRows = (state.lists || [])
+  .filter((l) => l && l.ownerId === authUid)   // ✅ SOLO owner real
   .map((l) => ({
-    user_id: authUid, // ✅ usa auth.uid real para pasar RLS
+    user_id: authUid,
     list_id: l.id,
     data: l,
     deleted: false,
