@@ -21,6 +21,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_HpAVTQ7Op6b2Cjnp9rBdrg_RmZrDJ9F";
 let supabaseClient = null;
 let cloudUserId = null;
 let cloudSyncTimer = null;
+let cloudBootstrapping = false;
 
 const CLOUD = {
   tasksTable: "trx_tasks",
@@ -376,6 +377,7 @@ function cloudMarkDeleted(key, id) {
 
 function cloudScheduleSync() {
   if (!cloudIsReady()) return;
+  if (cloudBootstrapping) return;
   if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
   cloudSyncTimer = setTimeout(() => {
     cloudSyncTimer = null;
@@ -389,42 +391,47 @@ async function cloudBootstrap() {
   const authUid = await cloudGetAuthUid(sb);
   if (!authUid) return;
 
-  // 1) Load server data
-  const [tasksRes, notesRes, listsRes] = await Promise.all([
-  sb.from(CLOUD.tasksTable).select("task_id,data,deleted,updated_at").eq("user_id", authUid),
-  sb.from(CLOUD.notesTable).select("note_id,data,deleted,updated_at").eq("user_id", authUid),
-  sb.from(CLOUD.listsTable).select("user_id,list_id,data,deleted,updated_at"), // 👈 sin eq
-]);
+  cloudBootstrapping = true;
+  try {
+    // 1) Load server data
+    const [tasksRes, notesRes, listsRes] = await Promise.all([
+      sb.from(CLOUD.tasksTable).select("task_id,data,deleted,updated_at").eq("user_id", authUid),
+      sb.from(CLOUD.notesTable).select("note_id,data,deleted,updated_at").eq("user_id", authUid),
+      sb.from(CLOUD.listsTable).select("user_id,list_id,data,deleted,updated_at"),
+    ]);
 
-  if (tasksRes.error) console.warn("Cloud tasks fetch", tasksRes.error);
-  if (notesRes.error) console.warn("Cloud notes fetch", notesRes.error);
-  if (listsRes.error) console.warn("Cloud lists fetch", listsRes.error);
+    if (tasksRes.error) console.warn("Cloud tasks fetch", tasksRes.error);
+    if (notesRes.error) console.warn("Cloud notes fetch", notesRes.error);
+    if (listsRes.error) console.warn("Cloud lists fetch", listsRes.error);
 
-  const serverTasks = (tasksRes.data || []).filter((r) => !r.deleted && r.data).map((r) => r.data);
-  const serverNotes = (notesRes.data || []).filter((r) => !r.deleted && r.data).map((r) => r.data);
+    const serverTasks = (tasksRes.data || []).filter((r) => !r.deleted && r.data).map((r) => r.data);
+    const serverNotes = (notesRes.data || []).filter((r) => !r.deleted && r.data).map((r) => r.data);
 
-  const serverLists = (listsRes.data || [])
-    .filter((r) => !r.deleted && r.data)
-    .map((r) => ({ ...r.data, ownerId: r.data.ownerId || r.user_id }));
+    const serverLists = (listsRes.data || [])
+      .filter((r) => !r.deleted && r.data)
+      .map((r) => ({ ...r.data, ownerId: r.data.ownerId || r.user_id }));
 
-  // 2) Merge (server overlays local by id)
-  const tMap = new Map((state.tasks || []).map((t) => [t.id, t]));
-  for (const t of serverTasks) tMap.set(t.id, normalizeTask(t));
-  state.tasks = [...tMap.values()];
+    // 2) Merge (server overlays local by id)
+    const tMap = new Map((state.tasks || []).map((t) => [t.id, t]));
+    for (const t of serverTasks) tMap.set(t.id, normalizeTask(t));
+    state.tasks = [...tMap.values()];
 
-  const nMap = new Map((state.notes || []).map((n) => [n.id, n]));
-  for (const n of serverNotes) nMap.set(n.id, n);
-  state.notes = [...nMap.values()];
+    const nMap = new Map((state.notes || []).map((n) => [n.id, n]));
+    for (const n of serverNotes) nMap.set(n.id, n);
+    state.notes = [...nMap.values()];
 
-  const lMap = new Map((state.lists || []).map((l) => [l.id, l]));
-  for (const l of serverLists) lMap.set(l.id, normalizeList(l));
-  state.lists = [...lMap.values()];
+    const lMap = new Map((state.lists || []).map((l) => [l.id, l]));
+    for (const l of serverLists) lMap.set(l.id, normalizeList(l));
+    state.lists = [...lMap.values()];
 
-  save();
-  renderAll();
+    save();
+    renderAll();
 
-  // 3) Push any local-only data
-  cloudScheduleSync();
+    // 3) Push any local-only data
+    cloudScheduleSync();
+  } finally {
+    cloudBootstrapping = false;
+  }
 }
 
 async function cloudSyncAll() {
