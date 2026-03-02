@@ -313,7 +313,7 @@ function load() {
   state.tasks = state.tasks.map(normalizeTask);
 }
 
-function save() {
+function save({ sync = true } = {}) {
   localStorage.setItem(LS.tasks, JSON.stringify(state.tasks));
   localStorage.setItem(LS.notes, JSON.stringify(state.notes));
   localStorage.setItem(LS.lists, JSON.stringify(state.lists));
@@ -326,9 +326,10 @@ function save() {
   localStorage.setItem("trx_view_v1", state.view);
   if (state.agendaRange) localStorage.setItem("trx_agenda_range_v1", state.agendaRange);
   localStorage.setItem(LS.timer, JSON.stringify(state.timer || null));
-  try {
-    cloudScheduleSync();
-  } catch {}
+
+  if (sync) {
+    try { cloudScheduleSync(); } catch {}
+  }
 }
 
 /* ===================== Cloud Sync (Supabase) ===================== */
@@ -339,9 +340,9 @@ function cloudSetUser(user) {
 // Helper: SIEMPRE usa el UID real de la sesión (evita 403 por des-sync de cloudUserId)
 async function cloudGetAuthUid(sb) {
   try {
-    const { data, error } = await sb.auth.getSession();
+    const { data, error } = await sb.auth.getUser(); // ✅ valida token
     if (error) return null;
-    return data?.session?.user?.id || null;
+    return data?.user?.id || null;
   } catch {
     return null;
   }
@@ -470,23 +471,23 @@ async function cloudSyncAll() {
     if (error) console.warn("Cloud notes upsert", error);
   }
 
-  // Upsert lists (SOLO listas propias; evita 403 con listas compartidas)
-  const listRows = (state.lists || [])
-  .filter((l) => l && l.ownerId === authUid)   // ✅ SOLO owner real
-  .map((l) => ({
-    user_id: authUid,
-    list_id: l.id,
-    data: l,
-    deleted: false,
-    updated_at: new Date().toISOString(),
-  }));
+  // Upsert lists (via RPC SECURITY DEFINER to avoid PostgREST/RLS mismatch)
+  for (const l of (state.lists || [])) {
+    if (!l || l.ownerId !== authUid) continue; // solo listas propias
+    const payload = { ...l, ownerId: authUid };
 
-if (listRows.length) {
-  const res = await sb.from(CLOUD.listsTable).upsert(listRows, { onConflict: "user_id,list_id" });
-  if (res.error) console.warn("Cloud lists upsert", res.error);
-}
+    const { error } = await sb.rpc("trx_upsert_list_definer", {
+      p_list_id: l.id,
+      p_data: payload,
+      p_deleted: false,
+      p_updated_at: new Date().toISOString(),
+    });
+
+    if (error) console.warn("Cloud lists upsert (rpc definer)", error);
+  }
 
   // Upsert list items
+
   // ✅ OJO: tu tabla trx_list_items NO tiene user_id. No lo envíes.
   const listIdsKnown = new Set((state.lists || []).map(l => l.id));
 
@@ -573,7 +574,6 @@ function pushNotif({ title, message = "", type = "info" }) {
   const n = { id: uid(), title, message, type, ts: Date.now() };
   state.notifs.unshift(n);
   state.notifs = state.notifs.slice(0, 80);
-  save();
   renderNotifs();
 }
 
