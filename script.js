@@ -1181,6 +1181,14 @@ function switchTab(id) {
 
   closeSidebarMobile();
 
+  // cerrar modales/overlays de tareas al cambiar de pestaña
+  const taskCreatePanel = document.getElementById("taskCreatePanel");
+  const taskControlsPanel = document.getElementById("taskControlsPanel");
+  const tasksOverlay = document.getElementById("tasksOverlay");
+  if (taskCreatePanel) taskCreatePanel.classList.remove("open");
+  if (taskControlsPanel) taskControlsPanel.classList.remove("open");
+  if (tasksOverlay) tasksOverlay.hidden = true;
+
   if (id === "tasks") {
     showTasksSkeleton();
     setTimeout(() => {
