@@ -2002,7 +2002,7 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
   inset:0;
   background: rgba(0,0,0,.45);
   backdrop-filter: blur(2px);
-  z-index: 9998;
+  z-index: 930; /* por debajo de los modales de tareas */
 }
 
 /* Lists: make the create-list modal sit above sticky headers */
@@ -2208,5 +2208,5 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
 }
 
 /* Ensure lists modal overlays everything */
-#listsOverlay{ position: fixed; inset:0; z-index: 9998; }
+#listsOverlay{ position: fixed; inset:0; z-index: 930; /* por debajo de los modales de tareas */ }
 #listCreateModal{ position: fixed; z-index: 9999; }
