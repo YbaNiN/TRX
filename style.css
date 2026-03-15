@@ -2082,35 +2082,7 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
 .listBtn .title{
   font-weight: 700;
 }
-.listItems{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-.listItemRow{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:10px 12px;
-  border-radius:14px;
-  border:1px solid var(--border);
-  background: rgba(255,255,255,.02);
-}
-.listItemRow .txt{
-  flex:1;
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-.listItemRow.done .txt{
-  text-decoration: line-through;
-  opacity:.7;
-}
-.listItemRow .mini{
-  display:flex;
-  gap:8px;
-}
+
 .subCard{
   border:1px solid var(--border);
   background: rgba(255,255,255,.02);
@@ -2152,9 +2124,9 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
 
 .playlistCols{
   display:grid;
-  grid-template-columns: 28px 1fr 92px;
+  grid-template-columns: 28px minmax(0,1fr) auto;
   gap:10px;
-  padding:10px 12px;
+  padding:10px 14px;
   margin-top:14px;
   border-radius:14px;
   background: rgba(255,255,255,0.03);
@@ -2167,18 +2139,23 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
 .listItems{
   display:flex;
   flex-direction:column;
-  gap:10px;
+  gap:8px;
+  margin-top:10px;
 }
 
 .listItemRow{
   display:grid;
-  grid-template-columns: 28px 1fr 92px;
+  grid-template-columns: 28px minmax(0,1fr) auto;
   gap:10px;
   align-items:center;
-  padding:12px 12px;
+  padding:11px 14px;
   border-radius:14px;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.06);
+  transition: background .12s;
+}
+.listItemRow:hover{
+  background: rgba(255,255,255,0.055);
 }
 .listItemRow .idx{
   text-align:center;
@@ -2187,24 +2164,43 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
 }
 .listItemRow .txt{
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 4px;
+}
+/* En desktop el texto puede mostrar hasta 2 líneas en vez de truncar */
+@media (min-width: 981px) and (pointer: fine) {
+  .listItemRow .txt{
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }
 .listItemRow.done .txt{
   text-decoration: line-through;
-  opacity: 0.65;
+  opacity: 0.55;
 }
 .listItemRow .mini{
   display:flex;
   justify-content:flex-end;
-  gap:8px;
+  align-items:center;
+  gap:6px;
+  flex-shrink: 0;
 }
-.listItemRow .chk{ width:18px; height:18px; margin:0 auto; }
+.listItemRow .mini .btn{
+  white-space: nowrap;
+}
+.listItemRow .chk{ width:18px; height:18px; margin:0 auto; flex-shrink:0; }
 
 @media (max-width: 980px), (pointer: coarse) {
-  /* make list detail feel like a separate screen */
   #lists[data-view="detail"] .listsSide{ display:none; }
   #lists[data-view="detail"] .listsMain{ width:100%; }
-  .playlistCols{ grid-template-columns: 22px 1fr 86px; }
-  .listItemRow{ grid-template-columns: 22px 1fr 86px; }
+  .playlistCols{ grid-template-columns: 22px minmax(0,1fr) auto; }
+  .listItemRow{ grid-template-columns: 22px minmax(0,1fr) auto; }
 }
 
 /* Ensure lists modal overlays everything */
