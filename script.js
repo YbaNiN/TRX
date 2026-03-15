@@ -425,6 +425,36 @@ async function cloudBootstrap() {
     for (const l of serverLists) lMap.set(l.id, normalizeList(l));
     state.lists = [...lMap.values()];
 
+    // 3) Fetch list items for all accessible lists (own + shared)
+    const allListIds = [...lMap.keys()];
+    if (allListIds.length) {
+      const itemsRes = await sb
+        .from(CLOUD.listItemsTable)
+        .select("list_id,item_id,data,deleted,updated_at")
+        .in("list_id", allListIds);
+
+      if (itemsRes.error) {
+        console.warn("Cloud list items fetch", itemsRes.error);
+      } else {
+        const serverItems = (itemsRes.data || []).filter((r) => !r.deleted && r.data);
+        for (const row of serverItems) {
+          const lid = row.list_id;
+          if (!state.listItems) state.listItems = {};
+          if (!Array.isArray(state.listItems[lid])) state.listItems[lid] = [];
+          const arr = state.listItems[lid];
+          const idx = arr.findIndex((x) => x.id === row.data.id);
+          if (idx === -1) {
+            arr.push(normalizeListItem(row.data));
+          } else {
+            // server wins if newer
+            const serverTs = row.data.updatedAt || 0;
+            const localTs = arr[idx].updatedAt || 0;
+            if (serverTs >= localTs) arr[idx] = normalizeListItem(row.data);
+          }
+        }
+      }
+    }
+
     save();
     renderAll();
 
@@ -484,6 +514,46 @@ async function cloudSyncAll() {
     });
 
     if (error) console.warn("Cloud lists upsert (rpc definer)", error);
+  }
+
+  // Pull list items from server for shared lists (lists not owned by current user)
+  const sharedListIds = (state.lists || [])
+    .filter(l => l.ownerId && l.ownerId !== authUid)
+    .map(l => l.id);
+
+  if (sharedListIds.length) {
+    const pullRes = await sb
+      .from(CLOUD.listItemsTable)
+      .select("list_id,item_id,data,deleted,updated_at")
+      .in("list_id", sharedListIds);
+
+    if (!pullRes.error) {
+      const serverItems = (pullRes.data || []).filter(r => !r.deleted && r.data);
+      if (!state.listItems) state.listItems = {};
+      for (const row of serverItems) {
+        const lid = row.list_id;
+        if (!Array.isArray(state.listItems[lid])) state.listItems[lid] = [];
+        const arr = state.listItems[lid];
+        const idx = arr.findIndex(x => x.id === row.data.id);
+        if (idx === -1) {
+          arr.push(normalizeListItem(row.data));
+        } else {
+          const serverTs = row.data.updatedAt || 0;
+          const localTs = arr[idx].updatedAt || 0;
+          if (serverTs >= localTs) arr[idx] = normalizeListItem(row.data);
+        }
+      }
+      // Remove items locally that the server no longer has
+      const serverItemIds = new Set((pullRes.data || []).filter(r => !r.deleted).map(r => r.item_id));
+      for (const lid of sharedListIds) {
+        if (!Array.isArray(state.listItems[lid])) continue;
+        state.listItems[lid] = state.listItems[lid].filter(it => serverItemIds.has(it.id));
+      }
+      save();
+      if (sharedListIds.includes(state.currentListId)) renderListDetail();
+    } else {
+      console.warn("Cloud list items pull (shared)", pullRes.error);
+    }
   }
 
   // Upsert list items
