@@ -1868,133 +1868,6 @@ body.light .agendaItem{ border-top-color: rgba(0,0,0,.06); border-left-color: rg
 body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-color: hsla(var(--h), 60%, 45%, .22); }
 
 
-/* --- Opción B (Tareas): crear separado + filtros en modal (móvil) --- */
-
-/* Formulario de creación: siempre en columna (evita que se aplaste en desktop) */
-#taskCreatePanel #taskForm{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-#taskCreatePanel #taskForm .row2{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-}
-@media (max-width: 980px), (pointer: coarse){
-  #taskCreatePanel #taskForm .row2{grid-template-columns: 1fr 1fr;}
-}
-.onlyMobile{display:none !important;}
-@media (max-width: 980px), (pointer: coarse){
-  .onlyMobile{display:flex !important;}
-}
-
-.taskLayout{
-  display:grid;
-  grid-template-columns: 360px 1fr;
-  gap:16px;
-  align-items:start;
-}
-.taskMainPanel{min-width:0;}
-
-.taskCreatePanel{
-  background: var(--card);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:12px;
-}
-.taskCreateHead{margin-bottom:10px;}
-
-.taskControlsPanel{margin-top:10px;}
-
-/* Móvil: panel crear como bottom-sheet y filtros como modal */
-@media (max-width: 980px), (pointer: coarse){
-  .taskLayout{grid-template-columns: 1fr;}
-  /* el panel de crear se convierte en sheet (cerrado por defecto) */
-  #taskCreatePanel{
-    position:fixed;
-    left:10px;
-    right:10px;
-    top:10vh;
-    max-height: 80vh;
-    overflow:auto;
-    -webkit-overflow-scrolling: touch;
-    padding:12px;
-    border-radius:16px;
-    background: var(--card);
-    border:1px solid var(--border);
-    box-shadow: 0 20px 60px rgba(0,0,0,.35);
-    opacity:0;
-    transform: translateY(10px);
-    pointer-events:none;
-    transition: opacity .18s ease, transform .18s ease;
-    z-index: 950;
-    display:none; /* hidden unless open */
-  }
-  #taskCreatePanel.open{display:block; opacity:1; transform: translateY(0); pointer-events:auto;}
-
-  /* header del sheet siempre visible */
-  #taskCreatePanel .taskCreateHead{
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: var(--card);
-    margin: -12px -12px 10px -12px;
-    padding: 12px;
-    border-bottom: 1px solid var(--border);
-    border-radius: 18px 18px 0 0;
-    border-left:0;
-    border-right:0;
-    border-bottom:0;
-  }
-
-  /* asa visual */
-  #taskCreatePanel .taskCreateHead::before{
-    content: "";
-    display:block;
-    width: 46px;
-    height: 5px;
-    border-radius: 999px;
-    margin: 2px auto 10px auto;
-    background: rgba(255,255,255,.14);
-  }
-
-  /* filtros en modal */
-  #taskControlsPanel{
-    position:fixed;
-    left:10px;
-    right:10px;
-    top:12vh;
-    max-height: 76vh;
-    overflow:auto;
-    -webkit-overflow-scrolling: touch;
-    padding:12px;
-    border-radius:16px;
-    background: var(--card);
-    border:1px solid var(--border);
-    box-shadow: 0 20px 60px rgba(0,0,0,.35);
-    opacity:0;
-    transform: translateY(10px);
-    pointer-events:none;
-    transition: opacity .18s ease, transform .18s ease;
-    z-index: 940;
-    display:none; /* hidden unless open */
-  }
-  #taskControlsPanel.open{
-    display:block;
-    opacity:1;
-    transform: translateY(0);
-    pointer-events:auto;
-  }
-
-  /* en móvil, ocultamos controles inline (se abren con botón Filtrar) */
-  .cardHead .taskControlsPanel .row.compact{flex-wrap:wrap;}
-  .cardHead .taskControlsPanel{display:none;}
-  .cardHead .taskControlsPanel.open{display:block;}
-
-  /* en móvil, el panel crear NO debe ocupar sitio en layout */
-  .taskLayout > .taskCreatePanel{margin-bottom:0;}
-}
 
 /* overlay para cerrar tocando fuera */
 .tasksOverlay{
@@ -2206,3 +2079,147 @@ body.light .agendaTags .tag{ background: hsla(var(--h), 60%, 45%, .12); border-c
 /* Ensure lists modal overlays everything */
 #listsOverlay{ position: fixed; inset:0; z-index: 930; /* por debajo de los modales de tareas */ }
 #listCreateModal{ position: fixed; z-index: 9999; }
+
+/* ===================== Mejoras: Undo, Invitado, Onboarding ===================== */
+
+/* Toast de deshacer */
+.undoToast{
+  display:flex; align-items:center; gap:12px;
+}
+.undoToast .toastBody{ flex:1; min-width:0; }
+.undoToast .undoBtn{ white-space:nowrap; }
+.toast.leaving{ opacity:0; transform: translateY(-6px); transition: opacity .2s ease, transform .2s ease; }
+
+/* Banner de modo invitado */
+.guestBanner{
+  position:fixed; left:50%; bottom:16px; transform:translateX(-50%);
+  z-index:60; display:flex; align-items:center; gap:14px;
+  max-width:min(560px, calc(100% - 28px));
+  padding:10px 14px; border-radius:14px;
+  background:var(--card); border:1px solid var(--stroke);
+  box-shadow:var(--shadow); backdrop-filter: blur(8px);
+}
+.guestBannerText{ font-size:13px; color:var(--text); }
+@media (max-width:520px){
+  .guestBanner{ flex-direction:column; text-align:center; gap:8px; bottom:12px; }
+}
+
+/* Onboarding */
+.onboard{
+  position:fixed; inset:0; z-index:80;
+  display:grid; place-items:center; padding:20px;
+  background:rgba(4,8,20,.55); backdrop-filter: blur(6px);
+  animation: obIn .2s ease;
+}
+.onboard.leaving{ opacity:0; transition:opacity .2s ease; }
+@keyframes obIn{ from{ opacity:0 } to{ opacity:1 } }
+.onboardCard{
+  width:min(460px, 100%);
+  background:var(--card); border:1px solid var(--stroke);
+  border-radius:var(--r); box-shadow:var(--shadow);
+  padding:22px;
+}
+.onboardHead{ display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+.onboardHead h2{ margin:0 0 2px; font-size:20px; }
+.onboardHead p{ margin:0; }
+.onboardList{ list-style:none; margin:0 0 18px; padding:0; display:flex; flex-direction:column; gap:14px; }
+.onboardList li{ display:flex; gap:12px; align-items:flex-start; }
+.onboardList .ob-ic{
+  flex:0 0 auto; width:34px; height:34px; border-radius:10px;
+  display:grid; place-items:center; font-size:16px;
+  background:rgba(43,108,255,.14); color:var(--accent);
+}
+.onboardActions{ display:flex; justify-content:flex-end; }
+.onboardActions .btn{ min-width:120px; }
+
+/* Pequeño detalle accesible: foco visible en navegación por teclado del calendario */
+.calCell:focus-visible{ box-shadow:0 0 0 3px rgba(43,108,255,.45); border-radius:8px; }
+
+/* ===================== Rediseño Tareas: FAB + pop-ups ===================== */
+
+/* Botón flotante (+) */
+.fab{
+  position:fixed; right:24px; bottom:24px; z-index:55;
+  width:58px; height:58px; border-radius:50%;
+  border:none; cursor:pointer;
+  background:var(--accent); color:#fff;
+  font-size:30px; line-height:1; font-weight:300;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 6px 20px rgba(0,0,0,.32);
+  transition: transform var(--t) ease, box-shadow var(--t) ease, opacity var(--t) ease;
+}
+.fab:hover{ transform: translateY(-2px) scale(1.03); box-shadow:0 10px 26px rgba(0,0,0,.4); }
+.fab:active{ transform: scale(.96); }
+/* El FAB solo aparece cuando su panel (Tareas) está activo */
+.panel:not(.active) .fab{ display:none; }
+/* En invitado lo atenuamos */
+body.isGuest .fab{ opacity:.55; }
+@media (max-width:520px){
+  .fab{ right:16px; bottom:84px; } /* deja hueco al banner de invitado */
+}
+
+/* Pop-ups centrados (crear / filtrar) */
+.popup{
+  position:fixed; inset:0; z-index:70;
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+  animation: popIn .18s ease;
+}
+.popup[hidden]{ display:none; }
+@keyframes popIn{ from{ opacity:0 } to{ opacity:1 } }
+.popupCard{
+  width:min(440px, 100%);
+  max-height:88vh; overflow:auto;
+  background:var(--card); border:1px solid var(--stroke);
+  border-radius:var(--r); box-shadow:var(--shadow);
+  padding:20px;
+  animation: popCardIn .2s ease;
+}
+@keyframes popCardIn{ from{ transform: translateY(10px); opacity:0 } to{ transform: translateY(0); opacity:1 } }
+
+/* En móvil, el pop-up se ancla abajo como bottom-sheet */
+@media (max-width:520px){
+  .popup{ align-items:flex-end; padding:0; }
+  .popupCard{
+    width:100%; max-height:90vh;
+    border-radius:18px 18px 0 0;
+    animation: sheetUp .22s ease;
+  }
+  @keyframes sheetUp{ from{ transform: translateY(100%) } to{ transform: translateY(0) } }
+}
+
+/* Toggle "Más opciones" */
+.moreToggle{
+  appearance:none; background:none; border:none; cursor:pointer;
+  color:var(--accent); font-weight:700; font-size:13px;
+  display:flex; align-items:center; gap:8px;
+  padding:6px 0; text-align:left;
+}
+.moreChevron{ transition: transform var(--t) ease; display:inline-block; }
+.moreToggle.open .moreChevron{ transform: rotate(90deg); }
+.moreFields{ display:flex; flex-direction:column; gap:10px; padding-top:4px; }
+.moreFields[hidden]{ display:none; }
+
+/* Fila de color dentro del pop-up */
+.colorRow{ display:flex; align-items:center; gap:8px; }
+
+/* Estado vacío amigable */
+.emptyState{
+  text-align:center; padding:48px 20px; color:var(--muted);
+}
+.emptyState .emptyIcon{
+  width:64px; height:64px; margin:0 auto 14px;
+  border-radius:50%; display:grid; place-items:center;
+  font-size:28px; background:rgba(43,108,255,.12); color:var(--accent);
+}
+.emptyState .emptyTitle{ font-size:16px; font-weight:800; color:var(--text); margin-bottom:6px; }
+.emptyState .emptyDesc{ font-size:13px; }
+
+/* Evita scroll del fondo cuando hay pop-up abierto */
+body.popupOpen{ overflow:hidden; }
+
+/* Utilidad: mostrar solo en móvil */
+.onlyMobile{ display:none !important; }
+@media (max-width: 980px), (pointer: coarse){
+  .onlyMobile{ display:inline-flex !important; }
+}
