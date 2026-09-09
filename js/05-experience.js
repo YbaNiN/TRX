@@ -60,6 +60,14 @@ function initExperience() {
   if (document.body.dataset.experienceReady) return;
   document.body.dataset.experienceReady = 'true';
   hydrateIcons();
+  // Keep list dialogs outside animated panels, which constrain fixed positioning.
+  for (const id of ['listsOverlay','listCreateModal']) document.body.appendChild($('#'+id));
+  $('#listCreateModal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeListsCreateModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !$('#listCreateModal').hidden) closeListsCreateModal();
+  });
   // Preserve the visible trigger even when a legacy hidden button opens the dialog.
   let lastTrigger = document.activeElement;
   document.addEventListener('click', e => { if (e.isTrusted) lastTrigger = e.target.closest('button,a,input,[tabindex]') || document.activeElement; }, true);

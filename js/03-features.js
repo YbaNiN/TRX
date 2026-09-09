@@ -170,6 +170,7 @@ function openListsCreateModal() {
   if (!ov || !modal) return;
   ov.hidden = false;
   modal.hidden = false;
+  modal.classList.add("open");
   document.body.classList.add("popupOpen");
   setTimeout(() => {
     $("#newListTitle")?.focus();
@@ -181,6 +182,7 @@ function closeListsCreateModal() {
   if (!ov || !modal) return;
   ov.hidden = true;
   modal.hidden = true;
+  modal.classList.remove("open");
   document.body.classList.remove("popupOpen");
 }
 
