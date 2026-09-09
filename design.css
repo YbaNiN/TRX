@@ -294,3 +294,13 @@ body:not(.light) .badge.high{background:#3c2930;color:#f3a49c}body:not(.light) .
 .modalCard,.cmdkCard{margin:0;max-height:calc(100dvh - 24px);overflow-y:auto}
 
 body:not(.light) .skipLink{color:#152142}
+/* Personal task colors remain visible independently of priority and status. */
+.taskColorDot{display:inline-block!important;width:9px!important;height:9px!important;min-width:9px;flex:0 0 9px;vertical-align:middle;border-radius:50%;margin-right:7px;box-shadow:0 0 0 1px rgba(128,128,128,.3)}
+.calChip .taskColorDot{margin-right:4px}
+.agendaDay{background:var(--surface);border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
+.agendaDayHead{padding:13px 18px;background:var(--surface-alt);text-transform:none}
+.agendaItem{align-items:center;gap:16px}
+.agendaMain{flex:1;min-width:0}.agendaTitle{overflow-wrap:anywhere}.agendaMeta{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.agendaTags{display:flex;flex-wrap:wrap;justify-content:flex-end;max-width:40%}
+.notesBar{align-items:flex-start}.notesBar textarea{flex:1;width:100%;min-width:0;resize:vertical;line-height:1.5;min-height:90px}
+@media(max-width:480px){.agendaItem{flex-wrap:wrap}.agendaTags{max-width:100%;justify-content:flex-start}.calChip .taskColorDot{display:none!important}}

@@ -1307,7 +1307,7 @@ function renderTasksList() {
         <div class="handle" aria-label="Arrastrar" title="Arrastrar">${trxIcon('grip')}</div>
         <input class="chk" type="checkbox" ${t.status === "done" ? "checked" : ""} aria-label="Marcar como hecha" />
         <div style="min-width:0">
-          <div class="title">${escapeHtml(t.title)}</div>
+          <div class="title">${taskColorMarker(t.color)}${escapeHtml(t.title)}</div>
           <div class="subline">${trxIcon('calendar')} ${readableDate(t.startDate)}${t.startTime?` · ${fmtTime(t.startTime)}`:""}${t.endDate!==t.startDate?` — ${readableDate(t.endDate)}`:""}${t.endTime?` – ${fmtTime(t.endTime)}`:""}${t.category==='event'?' · Evento':''}</div>
           <div class="tags">${t.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>
         </div>
@@ -1383,7 +1383,7 @@ function renderKanban() {
 card.setAttribute("draggable", "true");
     card.dataset.id = t.id;
     card.innerHTML = `
-      <div class="kTitle">${escapeHtml(t.title)}</div>
+      <div class="kTitle">${taskColorMarker(t.color)}${escapeHtml(t.title)}</div>
       <div class="kMeta">${readableDate(t.startDate)}${t.endDate!==t.startDate?' — '+readableDate(t.endDate):''} · ${escapeHtml(pr.txt)}${t.category==="event" ? " · Evento" : ""}${(t.tags||[]).length ? " · "+escapeHtml((t.tags||[]).slice(0,2).join(", ")) : ""}</div>
     `;
 

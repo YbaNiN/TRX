@@ -108,7 +108,7 @@ function renderCalendar(){
         ? `${fmtISODate(t.startDate)}${t.startTime?` ${fmtTime(t.startTime)}`:""}`
         : `${fmtISODate(t.endDate)}${t.endTime?` ${fmtTime(t.endTime)}`:""}`;
       return `<div class="calChip ${cls}${extra}"${style} title="${escapeHtml(typeTxt)} · ${escapeHtml(t.title)} · ${escapeHtml(point==="start"?"Comienzo":"Fin")} ${escapeHtml(when)}">
-        <span class="k"></span>
+        ${taskColorMarker(t.color)}
         <span class="t">${badge} ${escapeHtml(t.title)}</span>
       </div>`;
     }).join("");
@@ -254,11 +254,11 @@ function agendaItemHtml(t){
   const extra = t.color ? "hasColor" : "";
   return `<div class="agendaItem ${t.status} ${extra}" data-id="${escapeHtml(t.id)}" ${style}>
     <div class="agendaMain">
-      <div class="agendaTitle">${escapeHtml(t.title)}</div>
+      <div class="agendaTitle">${taskColorMarker(t.color)}${escapeHtml(t.title)}</div>
       <div class="agendaMeta">
         <span class="chip mini">${escapeHtml(typeTxt)}</span>
         ${timeTxt ? `<span class="chip mini subtle">${escapeHtml(timeTxt)}</span>` : ""}
-        <span class="chip mini subtle">${escapeHtml(t.priority)}</span>
+        <span class="chip mini subtle">${escapeHtml(prBadge(t.priority).txt)}</span>
       </div>
     </div>
     <div class="agendaTags">${tags}</div>
@@ -522,12 +522,13 @@ function bindUx() {
     const btn = $(btnId);
     if (!inp || !btn) return;
     btn.addEventListener("click", ()=>{
+      if (!inp.value.trim()) { inp.focus(); return; }
       addNote(inp.value);
       inp.value = "";
       toast({ title:"Nota", message:"Guardada", type:"ok", timeout: 1200 });
     });
     inp.addEventListener("keydown", (e)=>{
-      if (e.key === "Enter"){
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.isComposing){
         e.preventDefault();
         btn.click();
       }

@@ -34,3 +34,7 @@ function trxIcon(name, cls = '') {
 function hydrateIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = trxIcon(el.dataset.icon); });
 }
+function taskColorMarker(color) {
+  return /^#[0-9a-f]{6}$/i.test(String(color || ''))
+    ? `<span class="taskColorDot" style="background-color:${color}" role="img" aria-label="Color ${color}" title="Color ${color}"></span>` : '';
+}

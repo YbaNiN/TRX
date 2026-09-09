@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TRX Panel</title>
   <link rel="stylesheet" href="style.css?v=32" />
-  <link rel="stylesheet" href="design.css?v=32" />
+  <link rel="stylesheet" href="design.css?v=35" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2b6cff" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -264,7 +264,7 @@
           </div>
           <aside class="homeAside" aria-label="Concentración y notas">
             <section class="focusCard"><div class="focusTop"><span data-icon="timer"></span><span>Un momento de foco</span><span class="focusMark">TRX</span></div><h2>Una cosa.<br> Toda tu atención.</h2><p>Deja el ruido fuera.<br> Dedica este momento a avanzar.</p><div class="focusDuration"><strong id="focusDuration">25</strong><span id="focusUnit">minutos para ti</span><div class="focusOrbit" aria-hidden="true"><i></i><i></i><i></i></div></div><button class="btn focusButton" id="homeFocus" type="button"><span data-icon="play"></span><span id="homeFocusLabel">Preparar sesión</span><span data-icon="arrow"></span></button></section>
-            <section class="quickNotes"><div class="sectionHeading"><h2>Ideas al vuelo</h2><button class="iconBtn" type="button" data-go="notes" aria-label="Ver todas las notas"><span data-icon="arrow"></span></button></div><div id="notesBoardMini" class="notesBoard mini" aria-label="Notas rápidas"></div><div class="notesBar"><input id="noteInputMini" type="text" aria-label="Nueva nota rápida" placeholder="Que no se te escape esa idea…" autocomplete="off" /><button id="addNoteBtnMini" class="iconBtn" type="button" aria-label="Añadir nota"><span data-icon="plus"></span></button></div></section>
+            <section class="quickNotes"><div class="sectionHeading"><h2>Ideas al vuelo</h2><button class="iconBtn" type="button" data-go="notes" aria-label="Ver todas las notas"><span data-icon="arrow"></span></button></div><div id="notesBoardMini" class="notesBoard mini" aria-label="Notas rápidas"></div><div class="notesBar"><textarea id="noteInputMini" rows="3" aria-label="Nueva nota rápida" placeholder="Escribe tu idea… Enter: nueva línea. Ctrl + Enter: guardar."></textarea><button id="addNoteBtnMini" class="iconBtn" type="button" aria-label="Añadir nota"><span data-icon="plus"></span></button></div></section>
             <div class="homeFootnote"><span data-icon="leaf"></span>Avanzar también es ir a tu ritmo.</div>
           </aside>
         </div>
@@ -702,7 +702,7 @@
           </div>
 
           <div class="notesBar">
-            <input id="noteInput" type="text" placeholder="Escribe una nota rápida..." autocomplete="off" />
+            <textarea id="noteInput" rows="4" aria-label="Nueva nota" placeholder="Escribe tu nota… Enter: nueva línea. Ctrl + Enter: guardar."></textarea>
             <button id="addNoteBtn" class="btn primary" type="button">Añadir</button>
           </div>
 
@@ -818,12 +818,12 @@
 </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/00-design.js?v=32"></script>
+  <script src="js/00-design.js?v=35"></script>
   <script src="js/01-core.js?v=32"></script>
   <script src="js/02-ui-auth.js?v=33"></script>
-  <script src="js/03-features.js?v=34"></script>
-  <script src="js/04-views.js?v=32"></script>
-  <script src="js/05-experience.js?v=34"></script>
+  <script src="js/03-features.js?v=35"></script>
+  <script src="js/04-views.js?v=35"></script>
+  <script src="js/05-experience.js?v=35"></script>
 <!-- Install FAB (Mobile) -->
 <!-- Discord forms modal -->
 <div id="discordFormModal" class="modal" aria-hidden="true">
