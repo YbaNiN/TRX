@@ -330,7 +330,7 @@ function renderCmdk(q) {
     { name: "Ir a Calendario", desc: "Abrir calendario", key: "G", run: () => switchTab("calendar") },
     { name: "Ir a Listas", desc: "Abrir listas", key: "G", run: () => switchTab("lists") },
     { name: "Ir a Temporizador", desc: "Abrir temporizador", key: "G", run: () => switchTab("timer") },
-    { name: "Ir a Stats", desc: "Abrir estadísticas", key: "G", run: () => switchTab("stats"), admin: true },
+    { name: "Ir a Mi progreso", desc: "Abrir estadísticas", key: "G", run: () => switchTab("stats") },
     { name: "Cambiar Tema", desc: "Claro/Oscuro", key: "T", run: () => toggleTheme() },
     {
       name: "Activar notificaciones",
@@ -344,11 +344,12 @@ function renderCmdk(q) {
       },
     },
     { name: "Cambiar Densidad", desc: "Compacta/Normal", key: "D", run: () => toggleDensity() },
-    { name: "Nueva tarea", desc: "Enfocar input y crear", key: "N", run: () => { switchTab("tasks"); setTimeout(() => $("#taskInput").focus(), 50); } },
+    { name: "Nueva tarea", desc: "Añadir algo a tu plan", key: "N", run: () => { switchTab("tasks"); $("#btnTaskNew").click(); } },
     { name: "Notificaciones", desc: "Abrir panel", key: "B", run: () => openDrawer() },
     { name: "Cerrar sesión", desc: "Salir de la sesión", key: "L", run: () => logoutFlow() },
   ];
 
+  if ((q || '').trim()) base.push(...state.tasks.slice(0,200).map(t => ({name:t.title,desc:'Tarea · '+statusLabel(t.status).txt,key:'↵',run:()=>openEdit(t)})));
   const isAdmin = state.session?.role === "admin";
   cmdkItems = base
     .filter((x) => !x.admin || isAdmin)
@@ -438,6 +439,9 @@ async function applySupabaseSession(user, opts = {}) {
 }
 
 function setAuthMode(mode) {
+  const registering = mode === "register";
+  if ($("#authHeading")) $("#authHeading").textContent = registering ? "Empieza a hacer espacio" : "Bienvenido de nuevo";
+  if ($("#authSubtitle")) $("#authSubtitle").textContent = registering ? "Crea tu cuenta y organiza tu primer día." : "Tu día empieza aquí.";
   authUiMode = mode === "register" ? "register" : "login";
   const form = document.getElementById("loginForm");
   if (form) form.dataset.mode = authUiMode;
@@ -456,13 +460,14 @@ function setAuthMode(mode) {
   if (toggle) toggle.textContent = authUiMode === "register" ? "Ya tengo cuenta" : "Crear cuenta";
   if (chip) chip.textContent = authUiMode === "register" ? "Registro" : "Login";
   const hint = document.getElementById("authHint");
-  if (hint) hint.textContent = authUiMode === "register" ? "Regístrate con correo y contraseña." : "Inicia sesión con tu correo (no con nombre de usuario).";
+  if (hint) hint.textContent = authUiMode === "register" ? "Regístrate con correo y contraseña." : "Tus planes te esperan.";
   const err = document.getElementById("loginErr");
   if (err) err.textContent = "";
 }
 
 /* ===================== Auth / Roles ===================== */
 function showGate(on) {
+  document.querySelector(".app").inert = on;
   $("#authGate").classList.toggle("hidden", !on);
 }
 
@@ -518,17 +523,17 @@ function demoSeedData() {
     return toISODate(d);
   };
   const tasks = [
-    { title: "Bienvenido a TRX 👋 — toca para ver el detalle", priority: "high", status: "todo", category: "task", tags: ["intro"], startDate: iso(0), endDate: iso(0), color: "#2b6cff" },
-    { title: "Arrastra tareas entre columnas en Kanban", priority: "med", status: "doing", category: "task", tags: ["tip"], startDate: iso(0), endDate: iso(1), color: "#66e3a8" },
-    { title: "Revisar informe mensual", priority: "med", status: "todo", category: "task", tags: ["trabajo"], startDate: iso(2), endDate: iso(2) },
+    { title: "Dar forma a esa nueva idea", priority: "high", status: "todo", category: "task", tags: ["intro"], startDate: iso(0), endDate: iso(0), color: "#2b6cff" },
+    { title: "Preparar la propuesta del proyecto", priority: "med", status: "doing", category: "task", tags: ["tip"], startDate: iso(0), endDate: iso(1), color: "#66e3a8" },
+    { title: "Revisar los avances de la semana", priority: "med", status: "todo", category: "task", tags: ["trabajo"], startDate: iso(2), endDate: iso(2) },
     { title: "Reunión de equipo", priority: "high", status: "todo", category: "event", tags: ["trabajo"], startDate: iso(1), endDate: iso(1), startTime: "10:00", endTime: "11:00", color: "#f59e0b" },
     { title: "Clase de guitarra", priority: "low", status: "todo", category: "event", tags: ["música"], startDate: iso(3), endDate: iso(3), startTime: "18:00", endTime: "19:00" },
-    { title: "Primera tarea completada ✓", priority: "low", status: "done", category: "task", tags: ["intro"], startDate: iso(-1), endDate: iso(-1) },
+    { title: "Organizar mi espacio de trabajo", priority: "low", status: "done", category: "task", tags: ["intro"], startDate: iso(-1), endDate: iso(-1) },
   ].map((t) => normalizeTask({ id: uid(), createdAt: Date.now(), ...t }));
 
   const notes = [
-    { id: uid(), text: "Estas son notas tipo post-it. Fija las importantes con el icono ★.", pinned: true, createdAt: Date.now() },
-    { id: uid(), text: "Usa ⌘K (o el botón) para buscar y ejecutar acciones rápido.", pinned: false, createdAt: Date.now() - 1000 },
+    { id: uid(), text: "Menos cosas, mejor hechas. Esta semana: terminar la propuesta y dejar espacio para aprender.", pinned: true, createdAt: Date.now() },
+    { id: uid(), text: "Idea para más adelante: reservar los viernes para proyectos personales.", pinned: false, createdAt: Date.now() - 1000 },
   ];
 
   return { tasks, notes };
@@ -537,6 +542,7 @@ function demoSeedData() {
 // Entra en modo invitado: datos demo en memoria, todo de solo lectura.
 function enterGuestMode() {
   state.guest = true;
+  document.querySelector(".app").inert = false;
   const seed = demoSeedData();
   state.tasks = seed.tasks;
   state.notes = seed.notes;
@@ -571,10 +577,10 @@ function showGuestBanner() {
   bar.id = "guestBanner";
   bar.className = "guestBanner";
   bar.innerHTML = `
-    <span class="guestBannerText">Estás en modo invitado (demo). Los cambios no se guardan.</span>
+    <span class="guestBannerText">Estás explorando la demo. Crea tu cuenta para guardar tus planes.</span>
     <button type="button" id="guestSignupBtn" class="btn primary sm">Crear cuenta</button>
   `;
-  document.body.appendChild(bar);
+  document.querySelector('.topbar').insertAdjacentElement('afterend', bar);
   $("#guestSignupBtn").addEventListener("click", () => {
     exitGuestMode();
     setAuthMode("register");
@@ -710,6 +716,8 @@ async function tryRegister(name, email, password) {
 /* ===================== Sidebar Mobile ===================== */
 function openSidebarMobile() {
   const sb = $("#sidebar");
+  sb.inert = false;
+  $("#btnMenu").setAttribute('aria-expanded', 'true');
   const ov = $("#sbOverlay");
   sb.classList.add("open");
   ov.classList.add("show");
@@ -717,6 +725,8 @@ function openSidebarMobile() {
 }
 function closeSidebarMobile() {
   const sb = $("#sidebar");
+  sb.inert = window.matchMedia('(max-width:980px)').matches;
+  $("#btnMenu").setAttribute('aria-expanded', 'false');
   const ov = $("#sbOverlay");
   sb.classList.remove("open");
   ov.classList.remove("show");
@@ -725,6 +735,8 @@ function closeSidebarMobile() {
 
 /* ===================== Tabs ===================== */
 function switchTab(id) {
+  document.body.classList.remove("popupOpen");
+  if (typeof updatePageChrome === "function") updatePageChrome(id);
   $$(".tab").forEach((b) => {
     const on = b.dataset.tab === id;
     b.classList.toggle("active", on);
@@ -738,23 +750,23 @@ function switchTab(id) {
   const taskCreatePanel = document.getElementById("taskCreatePanel");
   const taskControlsPanel = document.getElementById("taskControlsPanel");
   const tasksOverlay = document.getElementById("tasksOverlay");
-  if (taskCreatePanel) taskCreatePanel.classList.remove("open");
+  if (taskCreatePanel) { taskCreatePanel.classList.remove("open"); taskCreatePanel.hidden = true; }
   if (taskControlsPanel) taskControlsPanel.classList.remove("open");
   if (tasksOverlay) tasksOverlay.hidden = true;
 
   if (id === "tasks") {
-    showTasksSkeleton();
+    // Local data is ready immediately; no artificial loading delay.
     setTimeout(() => {
       hideTasksSkeleton();
       renderAll();
-    }, 220);
+    }, 0);
   }
   if (id === "stats") {
-    showStatsSkeleton();
+    // Charts render on the next frame.
     setTimeout(() => {
       hideStatsSkeleton();
       redrawChartsIfVisible();
-    }, 260);
+    }, 0);
   }
   if (id === "timer") {
     setTimeout(() => {

@@ -1,6 +1,7 @@
 /* TRX Panel — 04-views.js · render global, calendario, agenda, bindings, formularios Discord, main() */
 /* ===================== Render all ===================== */
 function renderAll(redraw = true) {
+  if (typeof renderDayOverview === "function") renderDayOverview();
   renderStats();
   renderRecent();
   renderNotes();
@@ -113,7 +114,7 @@ function renderCalendar(){
     }).join("");
 
     cells.push(`
-      <div class="calCell ${dim?"dim":""} ${isToday?"today":""}" data-date="${iso}">
+      <div class="calCell ${dim?"dim":""} ${isToday?"today":""}" data-date="${iso}" role="button" tabindex="0" aria-label="${escapeHtml(cellDate.toLocaleDateString('es',{weekday:'long',day:'numeric',month:'long'}))}, ${all.length} tareas o eventos">
         <div class="day">${cellDate.getDate()}</div>
         <div class="calItems">
           ${chips}
@@ -930,12 +931,7 @@ async function main() {
 
   initInstallUX();
 
-  // service worker
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(err => console.warn("SW register failed:", err));
-    });
-  }
+  // The current app has no offline shell; do not register the removed sw.js.
 
   // restore session (Supabase)
   let restored = false;
@@ -963,6 +959,7 @@ async function main() {
   }
 
   renderAll();
+  if (typeof initExperience === "function") initExperience();
   // Avisos de vencimiento: al arrancar y cada hora (si la app está abierta)
   checkDueNotifications();
   setInterval(checkDueNotifications, 60 * 60 * 1000);

@@ -4,7 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TRX Panel</title>
-  <link rel="stylesheet" href="style.css?v=31" />
+  <link rel="stylesheet" href="style.css?v=32" />
+  <link rel="stylesheet" href="design.css?v=32" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2b6cff" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -12,6 +13,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
 </head>
 <body>
+  <a class="skipLink" href="#mainContent">Saltar al contenido</a>
 
   <!-- Toasts -->
   <div id="toastHost" class="toastHost" aria-live="polite" aria-atomic="true"></div>
@@ -119,7 +121,7 @@
         </div>
 
         <div class="field">
-          <label class="lbl" for="editTags">Tags (separados por coma)</label>
+          <label class="lbl" for="editTags">Etiquetas (separadas por coma)</label>
           <input id="editTags" type="text" placeholder="trabajo, estudio, música" />
         </div>
 
@@ -157,27 +159,22 @@
   <!-- Login Gate -->
   <div id="authGate" class="gate">
     <div class="gateCard">
-      <div class="gateBrand">
-        <img src="icons/mi-logo.png" alt="Logo TRX" class="logoImg" />
-        <div>
-          <h1>TRX Panel</h1>
-          <p>Acceso</p>
-        </div>
-      </div>
-
+      <div class="gateBrand"><img src="icons/mi-logo.png" alt="" class="logoImg" /><span>TRX<span class="brandDot">.</span></span></div>
+      <div class="gateIntro"><h1>Haz espacio para<br> lo importante.</h1><p>Tus tareas, tus ideas y tu tiempo.<br> Todo en un lugar que se siente tuyo.</p></div>
+      <div class="authHeading"><h2 id="authHeading">Bienvenido de nuevo</h2><p id="authSubtitle">Tu día empieza aquí.</p></div>
       <form id="loginForm" class="gateForm" data-mode="login">
         <div class="field" id="regNameField" style="display:none">
-          <label class="lbl">Nombre de usuario</label>
+          <label class="lbl" for="regName">Nombre de usuario</label>
           <input id="regName" type="text" autocomplete="nickname" placeholder="Tu nombre" maxlength="40" />
         </div>
 
         <div class="field">
-          <label class="lbl">Correo</label>
+          <label class="lbl" for="loginEmail">Correo electrónico</label>
           <input id="loginEmail" type="email" autocomplete="email" placeholder="tuemail@correo.com" required />
         </div>
 
         <div class="field">
-          <label class="lbl">Contraseña</label>
+          <label class="lbl" for="loginPass">Contraseña</label>
           <div class="pwWrap">
             <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••" required />
             <button id="pwToggle" class="iconBtn" type="button" aria-label="Mostrar/ocultar">👁</button>
@@ -191,7 +188,7 @@
 
         <button id="authModeToggle" class="btn ghost" type="button">Crear cuenta</button>
 
-        <button id="guestEnterBtn" class="btn ghost" type="button">Entrar como invitado (demo)</button>
+        <button id="guestEnterBtn" class="btn ghost" type="button">Explorar la demo</button>
 
         <div id="authHint" class="authHint">Inicia sesión con tu correo (no con nombre de usuario).</div>
 
@@ -200,7 +197,7 @@
 
       <div class="gateFoot">
         <span class="chip" id="authModeChip">Login</span>
-        <span class="chip">Supabase Auth</span>
+        <span>Un poco de orden. Más tranquilidad.</span>
       </div>
     </div>
   </div>
@@ -212,40 +209,19 @@
         <div class="sbBrand">
           <img src="icons/mi-logo.png" alt="Logo TRX" class="logoImg small" />
           <div class="sbTitle">
-            <div class="name">TRX</div>
+            <div class="name">TRX<span class="brandDot">.</span></div>
             <div class="sub" id="who"></div>
           </div>
         </div>
 
+        <button class="btn primary sidebarCreate" data-create-task type="button"><span data-icon="plus"></span>Nueva tarea <kbd>N</kbd></button>
         <nav class="sbNav" role="tablist" aria-label="Navegación">
-          <button class="tab active" data-tab="overview" role="tab" aria-selected="true">
-            <span class="ic">⌁</span><span>Resumen</span>
-          </button>
-          <button class="tab" data-tab="tasks" role="tab" aria-selected="false">
-            <span class="ic">✓</span><span>Tareas</span>
-          </button>
-                    <button class="tab" data-tab="calendar" role="tab" aria-selected="false">
-            <span class="ic">📅</span><span>Calendario</span>
-          </button>
-          <button class="tab" data-tab="agenda" role="tab" aria-selected="false">
-            <span class="ic">🗓️</span><span>Agenda</span>
-          </button>          <button class="tab" data-tab="lists" role="tab" aria-selected="false">
-            <span class="ic">📋</span><span>Listas</span>
-          </button>
-          <button class="tab" data-tab="timer" role="tab" aria-selected="false">
-            <span class="ic">⏱</span><span>Temporizador</span>
-          </button>
-<button class="tab" data-tab="notes" role="tab" aria-selected="false">
-            <span class="ic">✎</span><span>Notas</span>
-          </button>
-          <button class="tab" data-tab="stats" role="tab" aria-selected="false">
-            <span class="ic">▦</span><span>Stats</span>
-          </button>
-        
-          <button class="tab" data-tab="app" role="tab" aria-selected="false">
-            <span class="ic">📲</span><span>APP</span>
-          </button>
-</nav>
+          <span class="navGroup">Tu espacio</span>
+          <button class="tab active" data-tab="overview" role="tab" aria-controls="overview" aria-selected="true"><span class="ic" data-icon="sun"></span><span>Mi día</span></button><button class="tab" data-tab="tasks" role="tab" aria-controls="tasks" aria-selected="false"><span class="ic" data-icon="check"></span><span>Mis tareas</span><span class="navCount" data-stat="pending">0</span></button><button class="tab" data-tab="calendar" role="tab" aria-controls="calendar" aria-selected="false"><span class="ic" data-icon="calendar"></span><span>Calendario</span></button><button class="tab" data-tab="agenda" role="tab" aria-controls="agenda" aria-selected="false"><span class="ic" data-icon="rows"></span><span>Agenda</span></button>
+          <span class="navGroup">Organiza y avanza</span>
+          <button class="tab" data-tab="lists" role="tab" aria-controls="lists" aria-selected="false"><span class="ic" data-icon="folder"></span><span>Mis listas</span></button><button class="tab" data-tab="notes" role="tab" aria-controls="notes" aria-selected="false"><span class="ic" data-icon="note"></span><span>Notas</span></button><button class="tab" data-tab="timer" role="tab" aria-controls="timer" aria-selected="false"><span class="ic" data-icon="timer"></span><span>Concentración</span></button><button class="tab" data-tab="stats" role="tab" aria-controls="stats" aria-selected="false"><span class="ic" data-icon="chart"></span><span>Mi progreso</span></button>
+          <span class="navGroup">Siempre contigo</span><button class="tab" data-tab="app" role="tab" aria-controls="app" aria-selected="false"><span class="ic" data-icon="phone"></span><span>Instalar TRX</span></button>
+        </nav>
       </div>
 
       <div class="sbBottom">
@@ -269,89 +245,47 @@
     <div id="sbOverlay" class="sbOverlay" aria-hidden="true"></div>
 
     <!-- Content -->
-    <main class="content">
+    <main class="content" id="mainContent">
       <header class="topbar">
-        <button id="btnMenu" class="iconBtn menuBtn" type="button" aria-label="Menú">☰</button>
-
-        <div class="topTitle">
-          <div class="h">Panel</div>
-          <div class="p">Gestión y métricas</div>
-          <div class="discordQuickBar" id="discordQuickBar">
-            <button class="btn ghost sm dqBtn" type="button" data-discord-form="peticiones">Peticiones</button>
-            <button class="btn ghost sm dqBtn" type="button" data-discord-form="reportes">Reportes</button>
-            <button class="btn ghost sm dqBtn" type="button" data-discord-form="sugerencias">Sugerencias</button>
-            <button class="btn ghost sm dqBtn" type="button" data-discord-form="contacto">Contacto</button>
-          </div>
-        </div>
-
-        <div class="topPills">
-          <span class="pill" id="streak" data-stat="streak">0</span>
-          <span class="pill subtle" data-stat="total">0</span>
-          <button id="btnCmdk" class="iconBtn" type="button" aria-label="Comandos">⌘K</button>
-        </div>
+        <button id="btnMenu" class="iconBtn menuBtn" type="button" aria-label="Abrir navegación"><span data-icon="menu"></span></button>
+        <div class="topTitle"><span>Mi espacio</span><span class="crumbSlash">/</span><strong id="pageCrumb">Mi día</strong></div>
+        <div class="topPills"><button id="btnCmdk" class="searchTrigger" type="button"><span data-icon="search"></span><span>Buscar o ir a…</span><kbd>Ctrl K</kbd></button><button class="iconBtn" id="topNotify" type="button" aria-label="Notificaciones"><span data-icon="bell"></span><i id="notifyDot" hidden></i></button><span class="userAvatar" id="userAvatar" aria-label="Perfil">T</span></div>
       </header>
 
       <!-- OVERVIEW -->
-      <section class="panel active" id="overview" role="tabpanel">
-        
-
-        <div class="grid3">
-          <div class="card statCard">
-            <div class="k">Total</div>
-            <div class="v" data-stat="total">0</div>
-            <div class="s">tareas</div>
+      <section class="panel active" id="overview" role="tabpanel" aria-label="Mi día">
+        <div class="pageHeading"><div><h1 id="greeting">Todo empieza con un buen plan.</h1><p id="daySubtitle">Un poco de claridad para hacer espacio a lo importante.</p></div><button class="btn primary" data-create-task type="button"><span data-icon="plus"></span>Nueva tarea</button></div>
+        <div class="daySummary"><div><span class="summaryIcon" data-icon="check"></span><strong data-stat="pending">0</strong><span>por completar</span></div><div><span class="summaryIcon success" data-icon="circleCheck"></span><strong data-stat="done">0</strong><span>completadas</span></div><div><span class="summaryIcon amber" data-icon="flame"></span><strong id="homeStreak">0</strong><span>días de racha</span></div><span id="summaryDate" class="summaryDate"></span></div>
+        <div class="homeGrid">
+          <div class="homeMain">
+            <section class="weekPlanner" aria-label="Plan de la semana"><div class="sectionHeading"><h2>Una semana de posibilidades</h2><button class="textButton" type="button" data-go="calendar">Ver calendario <span data-icon="arrow"></span></button></div><div id="weekStrip" class="weekStrip"></div></section>
+            <section class="todaySection"><div class="sectionHeading"><h2 id="todayTitle">Tu plan de hoy <span class="countBadge" id="todayCount">0</span></h2><button class="textButton" type="button" data-go="tasks">Todas las tareas <span data-icon="arrow"></span></button></div><div id="todayTasks" class="todayTasks"></div><button class="inlineAdd" type="button" data-create-task><span data-icon="plus"></span>Haz sitio a tu próxima tarea</button></section>
+            <section class="upcomingSection"><div class="sectionHeading"><h2>En el horizonte</h2><button class="textButton" type="button" data-go="agenda">Abrir agenda <span data-icon="arrow"></span></button></div><div id="upcomingTasks" class="upcomingTasks"></div></section>
           </div>
-          <div class="card statCard">
-            <div class="k">Hechas</div>
-            <div class="v" data-stat="done">0</div>
-            <div class="s">completadas</div>
-          </div>
-          <div class="card statCard">
-            <div class="k">Pendientes</div>
-            <div class="v" data-stat="pending">0</div>
-            <div class="s">por hacer</div>
-          </div>
+          <aside class="homeAside" aria-label="Concentración y notas">
+            <section class="focusCard"><div class="focusTop"><span data-icon="timer"></span><span>Un momento de foco</span><span class="focusMark">TRX</span></div><h2>Una cosa.<br> Toda tu atención.</h2><p>Deja el ruido fuera.<br> Dedica este momento a avanzar.</p><div class="focusDuration"><strong id="focusDuration">25</strong><span id="focusUnit">minutos para ti</span><div class="focusOrbit" aria-hidden="true"><i></i><i></i><i></i></div></div><button class="btn focusButton" id="homeFocus" type="button"><span data-icon="play"></span><span id="homeFocusLabel">Preparar sesión</span><span data-icon="arrow"></span></button></section>
+            <section class="quickNotes"><div class="sectionHeading"><h2>Ideas al vuelo</h2><button class="iconBtn" type="button" data-go="notes" aria-label="Ver todas las notas"><span data-icon="arrow"></span></button></div><div id="notesBoardMini" class="notesBoard mini" aria-label="Notas rápidas"></div><div class="notesBar"><input id="noteInputMini" type="text" aria-label="Nueva nota rápida" placeholder="Que no se te escape esa idea…" autocomplete="off" /><button id="addNoteBtnMini" class="iconBtn" type="button" aria-label="Añadir nota"><span data-icon="plus"></span></button></div></section>
+            <div class="homeFootnote"><span data-icon="leaf"></span>Avanzar también es ir a tu ritmo.</div>
+          </aside>
         </div>
-
-        <div class="grid2">
-          <div class="card">
-            <div class="cardHead">
-              <h2>Recientes</h2>
-              <span class="pill subtle">últimas</span>
-            </div>
-            <ul id="recentList" class="miniList"></ul>
-          </div>
-
-          <div class="card">
-            <div class="cardHead">
-              <h2>Notas rápidas</h2>
-              <span class="pill subtle" data-stat="notes">0</span>
-            </div>
-            <div class="notesBar">
-              <input id="noteInputMini" type="text" placeholder="Escribe una nota..." autocomplete="off" />
-              <button id="addNoteBtnMini" class="btn primary" type="button">Añadir</button>
-            </div>
-            <div id="notesBoardMini" class="notesBoard mini" aria-label="Notas (mini)"></div>
-          </div>
-        </div>
+        <ul id="recentList" hidden></ul>
       </section>
-
       <!-- TASKS -->
       <section class="panel" id="tasks" role="tabpanel">
         <div class="card">
           <div class="cardHead">
             <div class="row spread">
-              <h2 style="margin:0">Tareas</h2>
+              <div><h1>Mis tareas</h1><p class="muted">De la idea al hecho, a tu ritmo.</p></div>
               <div class="row compact">
-                <button id="btnTaskFilters" type="button" class="iconBtn" aria-label="Buscar y filtrar">🔍</button>
+                <button type="button" class="btn primary" data-create-task><span data-icon="plus"></span>Nueva tarea</button><button id="btnTaskFilters" type="button" hidden aria-label="Buscar tareas"></button>
               </div>
             </div>
           </div>
 
-          <div class="taskMainPanel">
+          <div class="taskToolbar"><div class="taskSearch"><span data-icon="search"></span><input id="searchInput" type="search" aria-label="Buscar tareas" placeholder="Buscar una tarea o etiqueta…" /></div><select id="filterSelect" aria-label="Filtrar por estado"><option value="all">Todos los estados</option><option value="todo">Pendientes</option><option value="doing">En curso</option><option value="done">Completadas</option></select><div class="viewSwitch" role="group" aria-label="Vista de tareas"><button type="button" data-view="list" aria-label="Vista de lista" aria-pressed="true"><span data-icon="rows"></span></button><button type="button" data-view="kanban" aria-label="Vista de tablero" aria-pressed="false"><span data-icon="board"></span></button></div><select id="viewSelect" hidden aria-label="Vista"><option value="list">Lista</option><option value="kanban">Kanban</option></select></div><div id="taskControlsPanel" hidden><button id="btnTaskFiltersClose" type="button" hidden></button></div><div class="taskMainPanel">
             <!-- Chips de filtro activo -->
             <div class="chipRow">
-              <div class="chipLabel">Tags:</div>
+              <div class="chipLabel">Etiquetas</div>
               <div id="tagChips" class="chipWrap"></div>
               <button id="btnClearTag" class="btn ghost sm" type="button">Quitar filtro</button>
             </div>
@@ -389,40 +323,6 @@
           <!-- Botón flotante: nueva tarea -->
           <button id="btnTaskNew" type="button" class="fab" aria-label="Nueva tarea">+</button>
 
-          <!-- Pop-up: filtros y vista -->
-          <div id="taskControlsPanel" class="popup" role="dialog" aria-modal="true" aria-label="Buscar y filtrar" hidden>
-            <div class="popupCard">
-              <div class="row spread" style="margin-bottom:12px">
-                <div class="h3" style="margin:0">Buscar y filtrar</div>
-                <button id="btnTaskFiltersClose" type="button" class="iconBtn" aria-label="Cerrar">✕</button>
-              </div>
-              <div class="formGrid">
-                <div class="field">
-                  <label class="lbl" for="searchInput">Buscar</label>
-                  <input id="searchInput" type="text" placeholder="Nombre o tag..." />
-                </div>
-                <div class="row2">
-                  <div class="field">
-                    <label class="lbl" for="filterSelect">Estado</label>
-                    <select id="filterSelect" aria-label="Filtrar por estado">
-                      <option value="all" selected>Todas</option>
-                      <option value="todo">Pendientes</option>
-                      <option value="doing">En curso</option>
-                      <option value="done">Hechas</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label class="lbl" for="viewSelect">Vista</label>
-                    <select id="viewSelect" aria-label="Vista">
-                      <option value="list" selected>Lista</option>
-                      <option value="kanban">Kanban</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Pop-up: crear tarea -->
           <div id="taskCreatePanel" class="popup" role="dialog" aria-modal="true" aria-label="Crear tarea" hidden>
             <div class="popupCard">
@@ -457,7 +357,7 @@
 
                 <!-- Toggle de opciones avanzadas -->
                 <button id="taskMoreToggle" type="button" class="moreToggle" aria-expanded="false">
-                  <span class="moreChevron">▸</span> Más opciones (fechas, tags, color)
+                  <span class="moreChevron">▸</span> Fechas, etiquetas y color
                 </button>
 
                 <div id="taskMoreFields" class="moreFields" hidden>
@@ -482,7 +382,7 @@
                     </div>
                   </div>
                   <div class="field">
-                    <label class="lbl" for="taskTags">Tags (separados por coma)</label>
+                    <label class="lbl" for="taskTags">Etiquetas (separadas por coma)</label>
                     <input id="taskTags" type="text" placeholder="trabajo, música..." />
                   </div>
                   <div class="field">
@@ -543,7 +443,7 @@
           <div class="row spread" style="gap:12px; align-items:flex-end; flex-wrap:wrap">
             <div>
               <div class="h2">Agenda</div>
-              <div class="muted">Lista por fechas (ideal para móvil).</div>
+              <div class="muted">Tu próximo paso, organizado por fecha.</div>
             </div>
 
             <div class="row" style="gap:8px; flex-wrap:wrap; justify-content:flex-end">
@@ -578,7 +478,7 @@
                 <span class="pill" id="listsCount">0</span>
               </div>
               <div id="listsList" class="listsList"></div>
-              <div class="muted" id="listsEmptyHint" style="margin-top:10px">Crea una lista para empezar (p.ej. “VIAJE LONDRES”).</div>
+              <div class="muted" id="listsEmptyHint" style="margin-top:10px">De la compra semanal a tu próximo viaje. Crea tu primera lista.</div>
             </aside>
 
             <div class="listsMain">
@@ -616,11 +516,11 @@
                 </div>
 
                 <div class="row compact" style="margin-top:12px">
-                  <input id="listItemInput" type="text" placeholder="Añadir item..." autocomplete="off" />
+                  <input id="listItemInput" type="text" placeholder="Añadir un elemento…" autocomplete="off" />
                   <button id="btnListItemAdd" type="button" class="btn primary">Añadir</button>
                 </div>
 
-                <div class="playlistCols" id="listCols" aria-hidden="true"><span>✓</span><span>Item</span><span>Acciones</span></div>
+                <div class="playlistCols" id="listCols" aria-hidden="true"><span>✓</span><span>Elemento</span><span>Acciones</span></div>
                 <div id="listItems" class="listItems" style="margin-top:12px"></div>
               </div>
             </div>
@@ -637,7 +537,7 @@
               <div class="formGrid">
                 <div class="field">
                   <label class="lbl" for="newListTitle">Nombre</label>
-                  <input id="newListTitle" type="text" placeholder="p.ej. VIAJE LONDRES" autocomplete="off" />
+                  <input id="newListTitle" type="text" placeholder="Por ejemplo, Próximo viaje" autocomplete="off" />
                 </div>
                 <div class="field">
                   <label class="lbl" for="newListVisibility">Visibilidad</label>
@@ -664,9 +564,9 @@
   <div class="card">
     <div class="row spread">
       <div>
-        <div class="h2">Temporizador</div>
+        <div class="h2">Tu momento de concentración</div>
         <div class="seg" role="tablist" aria-label="Modo temporizador">
-          <button id="timerModeTimer" class="segBtn active" type="button" aria-selected="true">Normal</button>
+          <button id="timerModeTimer" class="segBtn active" type="button" aria-selected="true">Temporizador</button>
           <button id="timerModePomodoro" class="segBtn" type="button" aria-selected="false">Pomodoro</button>
         </div>
       </div>
@@ -865,8 +765,8 @@
       <section class="panel" id="app" role="tabpanel">
         <div class="card">
           <div class="cardHead">
-            <h2>APP</h2>
-            <div class="muted" style="font-size:12px">Instala TRX Panel en tu móvil para abrirlo a pantalla completa y usarlo sin conexión.</div>
+            <h2>Lleva TRX contigo</h2>
+            <div class="muted" style="font-size:12px">Un acceso directo a tus planes, desde la pantalla de inicio.</div>
           </div>
 
           <div class="installCardInline">
@@ -874,7 +774,7 @@
               <img class="installIcon" src="./icons/icon-192.png" alt="TRX icon" />
               <div class="installText">
                 <div class="installTitle">TRX Panel</div>
-                <div class="installSub">Acceso rápido, pantalla completa y offline.</div>
+                <div class="installSub">Tu espacio de productividad, siempre a mano.</div>
               </div>
             </div>
 
@@ -890,6 +790,7 @@
         </div>
       </section>
 
+      <footer class="appFooter"><span>TRX · Espacio para lo importante</span><details class="helpMenu"><summary>Ayuda y sugerencias</summary><div class="discordQuickBar" id="discordQuickBar"><button class="textButton" type="button" data-discord-form="peticiones">Solicitar una función</button><button class="textButton" type="button" data-discord-form="reportes">Reportar un problema</button><button class="textButton" type="button" data-discord-form="sugerencias">Compartir una idea</button><button class="textButton" type="button" data-discord-form="contacto">Contacto</button></div></details></footer>
     </main>
   </div>
 
@@ -917,10 +818,12 @@
 </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/01-core.js?v=31"></script>
-  <script src="js/02-ui-auth.js?v=31"></script>
-  <script src="js/03-features.js?v=31"></script>
-  <script src="js/04-views.js?v=31"></script>
+  <script src="js/00-design.js?v=32"></script>
+  <script src="js/01-core.js?v=32"></script>
+  <script src="js/02-ui-auth.js?v=32"></script>
+  <script src="js/03-features.js?v=32"></script>
+  <script src="js/04-views.js?v=32"></script>
+  <script src="js/05-experience.js?v=32"></script>
 <!-- Install FAB (Mobile) -->
 <!-- Discord forms modal -->
 <div id="discordFormModal" class="modal" aria-hidden="true">

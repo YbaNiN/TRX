@@ -105,8 +105,8 @@ function renderListDetail() {
         <input class="chk" type="checkbox" ${it.done ? "checked" : ""} aria-label="Hecho"/>
         <div class="txt">${escapeHtml(it.text)}</div>
         <div class="mini">
-          <button class="btn ghost sm" type="button" data-act="edit">✎</button>
-          <button class="btn danger sm" type="button" data-act="del">🗑</button>
+          <button class="btn ghost sm" type="button" data-act="edit" aria-label="Editar elemento">${trxIcon('edit')}</button>
+          <button class="btn danger sm" type="button" data-act="del" aria-label="Eliminar elemento">${trxIcon('trash')}</button>
         </div>
       `;
       row.querySelector(".chk").addEventListener("change", (e) => {
@@ -1302,11 +1302,11 @@ function renderTasksList() {
 
     li.innerHTML = `
       <div class="left">
-        <div class="handle" aria-label="Arrastrar" title="Arrastrar">⋮⋮</div>
+        <div class="handle" aria-label="Arrastrar" title="Arrastrar">${trxIcon('grip')}</div>
         <input class="chk" type="checkbox" ${t.status === "done" ? "checked" : ""} aria-label="Marcar como hecha" />
         <div style="min-width:0">
           <div class="title">${escapeHtml(t.title)}</div>
-          <div class="subline">🗓 ${fmtISODate(t.startDate)}${t.startTime?` ${fmtTime(t.startTime)}`:""} → ${fmtISODate(t.endDate)}${t.endTime?` ${fmtTime(t.endTime)}`:""} · Creada: ${new Date(t.createdAt).toLocaleString()}</div>
+          <div class="subline">${trxIcon('calendar')} ${readableDate(t.startDate)}${t.startTime?` · ${fmtTime(t.startTime)}`:""}${t.endDate!==t.startDate?` — ${readableDate(t.endDate)}`:""}${t.endTime?` – ${fmtTime(t.endTime)}`:""}${t.category==='event'?' · Evento':''}</div>
           <div class="tags">${t.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>
         </div>
       </div>
@@ -1314,8 +1314,8 @@ function renderTasksList() {
       <div class="right">
         <span class="badge ${escapeHtml(pr.cls)}">${escapeHtml(pr.txt)}</span>
         <span class="badge ${escapeHtml(st.cls)}">${escapeHtml(st.txt)}</span>
-        <button class="btn btnGhost small edit" title="Editar">✎</button>
-        <button class="btn btnGhost small del" title="Eliminar">🗑</button>
+        <button class="btn btnGhost small edit" type="button" title="Editar" aria-label="Editar ${escapeHtml(t.title)}">${trxIcon('edit')}</button>
+        <button class="btn btnGhost small del" type="button" title="Eliminar" aria-label="Eliminar ${escapeHtml(t.title)}">${trxIcon('trash')}</button>
       </div>
     `;
 
@@ -1382,9 +1382,13 @@ card.setAttribute("draggable", "true");
     card.dataset.id = t.id;
     card.innerHTML = `
       <div class="kTitle">${escapeHtml(t.title)}</div>
-      <div class="kMeta">🗓 ${fmtISODate(t.startDate)} → ${fmtISODate(t.endDate)} · ${escapeHtml(pr.txt)}${t.category==="event" ? " · Evento" : ""}${(t.tags||[]).length ? " · "+escapeHtml((t.tags||[]).slice(0,2).join(", ")) : ""}</div>
+      <div class="kMeta">${readableDate(t.startDate)}${t.endDate!==t.startDate?' — '+readableDate(t.endDate):''} · ${escapeHtml(pr.txt)}${t.category==="event" ? " · Evento" : ""}${(t.tags||[]).length ? " · "+escapeHtml((t.tags||[]).slice(0,2).join(", ")) : ""}</div>
     `;
 
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', 'Editar '+t.title);
+    card.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' ') { e.preventDefault(); openEdit(t); } });
     card.addEventListener("click", () => openEdit(t));
 
     card.addEventListener("dragstart", (e) => {
@@ -1489,8 +1493,8 @@ function renderNotes() {
         <div class="noteMeta2">
           <span class="muted">${created}</span>
           <div class="noteBtns">
-            <button class="noteBtn pin" type="button" title="${n.pinned?"Desfijar":"Fijar"}">${n.pinned?"📌":"📍"}</button>
-            <button class="noteBtn danger del" type="button" title="Eliminar">🗑</button>
+            <button class="noteBtn pin" type="button" title="${n.pinned?"Desfijar":"Fijar"}" aria-label="${n.pinned?'Desfijar nota':'Fijar nota'}" aria-pressed="${n.pinned}">${trxIcon('pin')}</button>
+            <button class="noteBtn danger del" type="button" title="Eliminar" aria-label="Eliminar nota">${trxIcon('trash')}</button>
           </div>
         </div>
       `;

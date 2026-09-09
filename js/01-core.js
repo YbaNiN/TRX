@@ -679,7 +679,7 @@ function setTheme(mode) {
 
 function initTheme() {
   const saved = localStorage.getItem(LS.theme);
-  setTheme(saved || "dark");
+  setTheme(saved || "light");
 }
 
 function setDensity(mode) {
