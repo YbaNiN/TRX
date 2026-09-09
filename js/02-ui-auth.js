@@ -703,9 +703,7 @@ async function tryRegister(name, email, password) {
   if (error) return { ok: false, error: authErrorMessage(error, "register") };
 
   if (data?.user && data?.session) {
-    try {
-      await sb.from("profiles").update({ username: displayName, display_name: displayName }).eq("id", data.user.id);
-    } catch {}
+    // The signup trigger assigns the unique username and display name atomically.
     await applySupabaseSession(data.user, { toastMessage: "Cuenta creada" });
     return { ok: true, registered: true };
   }
