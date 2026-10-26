@@ -328,6 +328,8 @@ function renderCmdk(q) {
     { name: "Ir a Resumen", desc: "Abrir resumen", key: "G", run: () => switchTab("overview") },
     { name: "Ir a Tareas", desc: "Abrir tareas", key: "G", run: () => switchTab("tasks") },
     { name: "Ir a Calendario", desc: "Abrir calendario", key: "G", run: () => switchTab("calendar") },
+    { name: "Ir a Agenda", desc: "Citas y recordatorios", key: "G", run: () => switchTab("agenda") },
+    { name: "Nueva entrada de agenda", desc: "Apuntar una cita o recordatorio", key: "A", run: () => { switchTab("agenda"); openAgendaModal(); } },
     { name: "Ir a Listas", desc: "Abrir listas", key: "G", run: () => switchTab("lists") },
     { name: "Ir a Temporizador", desc: "Abrir temporizador", key: "G", run: () => switchTab("timer") },
     { name: "Ir a Mi progreso", desc: "Abrir estadísticas", key: "G", run: () => switchTab("stats") },
@@ -536,7 +538,13 @@ function demoSeedData() {
     { id: uid(), text: "Idea para más adelante: reservar los viernes para proyectos personales.", pinned: false, createdAt: Date.now() - 1000 },
   ];
 
-  return { tasks, notes };
+  const agenda = [
+    { title: "Llamar al dentista para pedir cita", date: iso(0), time: "09:30", note: "Preguntar por la revisión anual." },
+    { title: "Comida con Laura", date: iso(1), time: "14:00", note: "Restaurante del centro." },
+    { title: "Renovar el abono de transporte", date: iso(3), time: "" },
+  ].map((a) => normalizeAgendaItem({ id: uid(), createdAt: Date.now(), ...a }));
+
+  return { tasks, notes, agenda };
 }
 
 // Entra en modo invitado: datos demo en memoria, todo de solo lectura.
@@ -546,6 +554,7 @@ function enterGuestMode() {
   const seed = demoSeedData();
   state.tasks = seed.tasks;
   state.notes = seed.notes;
+  state.agenda = seed.agenda;
   state.lists = [];
   state.listItems = {};
   state.session = { u: "Invitado", role: "guest", email: "", ts: Date.now() };
@@ -566,6 +575,7 @@ function exitGuestMode() {
   state.session = null;
   state.tasks = [];
   state.notes = [];
+  state.agenda = [];
   document.body.classList.remove("isGuest");
   hideGuestBanner();
   showGate(true);

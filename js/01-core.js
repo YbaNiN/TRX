@@ -5,6 +5,7 @@ const LS = {
   tasks: "trx_tasks_v5",
   notes: "trx_notes_v5",
   lists: "trx_lists_v1",
+  agenda: "trx_agenda_v1",
   listItems: "trx_list_items_v1",
   theme: "trx_theme_v5",
   density: "trx_density_v1",
@@ -59,6 +60,7 @@ const DISCORD_CHANNEL_LABELS = {
 const state = {
   tasks: [],
   notes: [],
+  agenda: [], // agenda entries, kept apart from tasks and the calendar
   lists: [],
   listItems: {},
   currentListId: null,
@@ -71,8 +73,8 @@ const state = {
   view: "list", // list | kanban
   timer: {
     mode: "timer", // timer | pomodoro
-    durationMs: 25 * 1000,
-    remainingMs: 25 * 1000,
+    durationMs: 25 * 60 * 1000,
+    remainingMs: 25 * 60 * 1000,
     running: false,
     endAt: null,
     volume: 0.5,
@@ -93,7 +95,7 @@ const state = {
     pomodoroPresets: [],
 
     // Para recordar el último temporizador "normal"
-    lastTimerDurationMs: 25 * 1000,
+    lastTimerDurationMs: 25 * 60 * 1000,
   },
 };
 
@@ -264,6 +266,13 @@ function load() {
   }
 
   try {
+    const agenda = JSON.parse(localStorage.getItem(LS.agenda) || "[]");
+    state.agenda = Array.isArray(agenda) ? agenda.map(normalizeAgendaItem) : [];
+  } catch {
+    state.agenda = [];
+  }
+
+  try {
     state.lists = JSON.parse(localStorage.getItem(LS.lists) || "[]");
   } catch {
     state.lists = [];
@@ -312,15 +321,15 @@ function load() {
   // Normaliza timer
   const defTimer = {
     mode: "timer",
-    durationMs: 25 * 1000,
-    remainingMs: 25 * 1000,
+    durationMs: 25 * 60 * 1000,
+    remainingMs: 25 * 60 * 1000,
     running: false,
     endAt: null,
     volume: 0.5,
     finishedAt: null,
     pomodoro: { workMin: 25, shortMin: 5, longMin: 15, longEvery: 4, autoAdvance: true, phase: "work", completed: 0 },
     pomodoroPresets: [],
-    lastTimerDurationMs: 25 * 1000,
+    lastTimerDurationMs: 25 * 60 * 1000,
   };
   if (!state.timer || typeof state.timer !== "object") state.timer = defTimer;
   if (!state.timer.pomodoro || typeof state.timer.pomodoro !== "object") state.timer.pomodoro = defTimer.pomodoro;
@@ -371,6 +380,7 @@ function save({ sync = true } = {}) {
   if (state.guest) return;
   localStorage.setItem(LS.tasks, JSON.stringify(state.tasks));
   localStorage.setItem(LS.notes, JSON.stringify(state.notes));
+  localStorage.setItem(LS.agenda, JSON.stringify(state.agenda || []));
   localStorage.setItem(LS.lists, JSON.stringify(state.lists));
   localStorage.setItem(LS.listItems, JSON.stringify(state.listItems || {}));
   localStorage.setItem(LS.favColors, JSON.stringify(state.favColors || []));
@@ -422,13 +432,34 @@ function cloudAddDeleted(key, id) {
   if (!arr.includes(id)) arr.push(id);
   localStorage.setItem(key, JSON.stringify(arr));
 }
-function cloudClearDeleted(key) {
-  localStorage.setItem(key, JSON.stringify([]));
+// Removes only the ids that were processed, so deletions made during a sync are kept.
+function cloudRemoveDeleted(key, ids) {
+  const done = new Set(ids || []);
+  localStorage.setItem(key, JSON.stringify(cloudGetDeleted(key).filter((x) => !done.has(x))));
 }
 
-// Compat: en tu código llamas a cloudMarkDeleted (no existía en el snippet)
 function cloudMarkDeleted(key, id) {
   cloudAddDeleted(key, id);
+}
+
+function cloudUnmarkDeleted(key, id) {
+  cloudRemoveDeleted(key, [id]);
+}
+
+// Marks rows as deleted on the server and then tries to remove them.
+// A DELETE blocked by row-level security affects zero rows without an error,
+// so the soft-delete flag is what keeps a deleted item from coming back.
+async function cloudDeleteRows(sb, table, idColumn, key, authUid) {
+  const ids = cloudGetDeleted(key);
+  if (!ids.length) return;
+  const now = new Date().toISOString();
+  const rows = ids.map((id) => ({ user_id: authUid, [idColumn]: id, data: { id, deleted: true }, deleted: true, updated_at: now }));
+  const soft = await sb.from(table).upsert(rows, { onConflict: `user_id,${idColumn}` });
+  if (soft.error) console.warn(`Cloud ${table} soft delete`, soft.error);
+  const hard = await sb.from(table).delete({ count: "exact" }).eq("user_id", authUid).in(idColumn, ids);
+  if (hard.error) console.warn(`Cloud ${table} delete`, hard.error);
+  // Keep the ids queued unless the server confirmed one of the two operations.
+  if (!soft.error || (!hard.error && hard.count === ids.length)) cloudRemoveDeleted(key, ids);
 }
 
 function cloudScheduleSync() {
@@ -460,20 +491,40 @@ async function cloudBootstrap() {
     if (notesRes.error) console.warn("Cloud notes fetch", notesRes.error);
     if (listsRes.error) console.warn("Cloud lists fetch", listsRes.error);
 
-    const serverTasks = (tasksRes.data || []).filter((r) => !r.deleted && r.data).map((r) => r.data);
-    const serverNotes = (notesRes.data || []).filter((r) => !r.deleted && r.data).map((r) => r.data);
-
     const serverLists = (listsRes.data || [])
       .filter((r) => !r.deleted && r.data)
       .map((r) => ({ ...r.data, ownerId: r.data.ownerId || r.user_id }));
 
-    // 2) Merge (server overlays local by id)
-    const tMap = new Map((state.tasks || []).map((t) => [t.id, t]));
-    for (const t of serverTasks) tMap.set(t.id, normalizeTask(t));
+    // 2) Merge (server overlays local by id). Rows deleted on the server or
+    // still waiting to be deleted from this device must not come back.
+    const pendingTaskDeletes = new Set(cloudGetDeleted(CLOUD.delTasksKey));
+    const tMap = new Map((state.tasks || []).filter((t) => !pendingTaskDeletes.has(t.id)).map((t) => [t.id, t]));
+    const aMap = new Map((state.agenda || []).filter((a) => !pendingTaskDeletes.has(a.id)).map((a) => [a.id, a]));
+    if (!tasksRes.error) {
+      for (const r of tasksRes.data || []) {
+        const id = r.data?.id || r.task_id;
+        if (r.deleted || r.data?.deleted || pendingTaskDeletes.has(id)) {
+          tMap.delete(id);
+          aMap.delete(id);
+        } else if (r.data?.kind === "agenda") {
+          aMap.set(id, normalizeAgendaItem(r.data));
+        } else if (r.data) {
+          tMap.set(id, normalizeTask(r.data));
+        }
+      }
+    }
     state.tasks = [...tMap.values()];
+    state.agenda = [...aMap.values()];
 
-    const nMap = new Map((state.notes || []).map((n) => [n.id, n]));
-    for (const n of serverNotes) nMap.set(n.id, n);
+    const pendingNoteDeletes = new Set(cloudGetDeleted(CLOUD.delNotesKey));
+    const nMap = new Map((state.notes || []).filter((n) => !pendingNoteDeletes.has(n.id)).map((n) => [n.id, n]));
+    if (!notesRes.error) {
+      for (const r of notesRes.data || []) {
+        const id = r.data?.id || r.note_id;
+        if (r.deleted || r.data?.deleted || pendingNoteDeletes.has(id)) nMap.delete(id);
+        else if (r.data) nMap.set(id, r.data);
+      }
+    }
     state.notes = [...nMap.values()];
 
     const lMap = new Map((state.lists || []).map((l) => [l.id, l]));
@@ -530,8 +581,9 @@ async function cloudSyncAll() {
   // Mantén cloudUserId por UI, pero para RLS usa authUid SIEMPRE
   cloudUserId = authUid;
 
-  // Upsert tasks
-  const taskRows = (state.tasks || []).map((t) => ({
+  // Upsert tasks and agenda entries (agenda entries share the tasks table, marked with kind: "agenda")
+  const pendingTaskDeletes = new Set(cloudGetDeleted(CLOUD.delTasksKey));
+  const taskRows = [...(state.tasks || []), ...(state.agenda || [])].filter((t) => !pendingTaskDeletes.has(t.id)).map((t) => ({
     user_id: authUid,
     task_id: t.id,
     data: t,
@@ -544,7 +596,8 @@ async function cloudSyncAll() {
   }
 
   // Upsert notes
-  const noteRows = (state.notes || []).map((n) => ({
+  const pendingNoteDeletes = new Set(cloudGetDeleted(CLOUD.delNotesKey));
+  const noteRows = (state.notes || []).filter((n) => !pendingNoteDeletes.has(n.id)).map((n) => ({
     user_id: authUid,
     note_id: n.id,
     data: n,
@@ -638,33 +691,22 @@ if (itemsFlat.length) {
   if (error) console.warn("Cloud list items upsert", error);
 }
 
-  // Deletes (hard delete)
-  const delTasks = cloudGetDeleted(CLOUD.delTasksKey);
-  if (delTasks.length) {
-    const { error } = await sb.from(CLOUD.tasksTable).delete().eq("user_id", authUid).in("task_id", delTasks);
-    if (error) console.warn("Cloud tasks delete", error);
-    else cloudClearDeleted(CLOUD.delTasksKey);
-  }
-
-  const delNotes = cloudGetDeleted(CLOUD.delNotesKey);
-  if (delNotes.length) {
-    const { error } = await sb.from(CLOUD.notesTable).delete().eq("user_id", authUid).in("note_id", delNotes);
-    if (error) console.warn("Cloud notes delete", error);
-    else cloudClearDeleted(CLOUD.delNotesKey);
-  }
+  // Deletes: tasks/agenda and notes are flagged as deleted, then removed when allowed
+  await cloudDeleteRows(sb, CLOUD.tasksTable, "task_id", CLOUD.delTasksKey, authUid);
+  await cloudDeleteRows(sb, CLOUD.notesTable, "note_id", CLOUD.delNotesKey, authUid);
 
   const delLists = cloudGetDeleted(CLOUD.delListsKey);
   if (delLists.length) {
     const { error } = await sb.from(CLOUD.listsTable).delete().eq("user_id", authUid).in("list_id", delLists);
     if (error) console.warn("Cloud lists delete", error);
-    else cloudClearDeleted(CLOUD.delListsKey);
+    else cloudRemoveDeleted(CLOUD.delListsKey, delLists);
   }
 
   const delListItems = cloudGetDeleted(CLOUD.delListItemsKey);
   if (delListItems.length) {
     const { error } = await sb.from(CLOUD.listItemsTable).delete().in("item_id", delListItems);
     if (error) console.warn("Cloud list items delete", error);
-    else cloudClearDeleted(CLOUD.delListItemsKey);
+    else cloudRemoveDeleted(CLOUD.delListItemsKey, delListItems);
   }
 }
 

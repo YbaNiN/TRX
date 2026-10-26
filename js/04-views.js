@@ -138,131 +138,232 @@ function renderCalendar(){
 
 
 /* ===================== Agenda ===================== */
-function agendaRangeWindow(range){
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0,0);
-  if (range === "all") return { start: null, end: null };
+// Agenda entries live in state.agenda, apart from tasks, so they never show in
+// the calendar, Kanban or task stats. In the cloud they share the tasks table
+// and are told apart by kind: "agenda".
+const AGENDA_RANGES = ["today", "tomorrow", "week", "month", "all"];
 
-  let days = 6; // week
-  if (range === "today") days = 0;
-  else if (range === "tomorrow") {
-    const s = new Date(start.getTime() + 24*60*60*1000);
-    return { start: s, end: new Date(s.getTime() + 24*60*60*1000) };
-  }
-  else if (range === "month") days = 29;
-
-  const end = new Date(start.getTime() + (days+1) * 24*60*60*1000);
-  return { start, end };
+function normalizeAgendaItem(a) {
+  const it = a && typeof a === "object" ? a : {};
+  it.kind = "agenda";
+  if (!it.id) it.id = uid();
+  it.title = String(it.title || "").trim().slice(0, 120) || "Sin título";
+  it.date = /^\d{4}-\d{2}-\d{2}$/.test(String(it.date || "")) ? it.date : "";
+  it.time = /^\d{2}:\d{2}$/.test(String(it.time || "")) ? it.time : "";
+  it.note = String(it.note || "").slice(0, 1000);
+  it.done = Boolean(it.done);
+  if (!it.createdAt) it.createdAt = Date.now();
+  if (!it.updatedAt) it.updatedAt = it.createdAt;
+  return it;
 }
 
-function taskPrimaryISO(t){
-  return t.startDate || t.endDate || "";
+// [start, end) window of ISO dates for a range; null means no limit.
+function agendaRangeWindow(range) {
+  const today = new Date();
+  const add = (n) => { const d = new Date(today); d.setDate(d.getDate() + n); return toISODate(d); };
+  if (range === "today") return { from: add(0), to: add(1) };
+  if (range === "tomorrow") return { from: add(1), to: add(2) };
+  if (range === "month") return { from: add(0), to: add(30) };
+  if (range === "all") return { from: null, to: null };
+  return { from: add(0), to: add(7) }; // week
 }
 
-function taskSortKey(t){
-  const iso = taskPrimaryISO(t);
-  const time = (t.startTime || t.endTime || "");
-  return { iso, time };
+function agendaSort(a, b) {
+  return (a.date || "9999").localeCompare(b.date || "9999") ||
+    (a.time || "").localeCompare(b.time || "") ||
+    (a.createdAt - b.createdAt);
 }
 
-function renderAgenda(){
+function renderAgenda() {
   const host = $("#agendaList");
   if (!host) return;
 
-  const range = state.agendaRange || "week";
-  const { start, end } = agendaRangeWindow(range);
-
-  const dated = [];
-  const undated = [];
-
-  for (const t of state.tasks){
-    const iso = taskPrimaryISO(t);
-    if (!iso){ undated.push(t); continue; }
-    const d = parseISODate(iso);
-    if (!d){ undated.push(t); continue; }
-    if (start && end){
-      const ts = d.getTime();
-      if (ts < start.getTime() || ts >= end.getTime()) continue;
-    }
-    dated.push(t);
-  }
-
-  // sort
-  const pr = { high:0, med:1, low:2 };
-  dated.sort((a,b)=>{
-    const ka = taskSortKey(a), kb = taskSortKey(b);
-    if (ka.iso !== kb.iso) return ka.iso.localeCompare(kb.iso);
-    if ((ka.time||"") !== (kb.time||"")) return (ka.time||"99:99").localeCompare(kb.time||"99:99");
-    return (a.category==="event"?0:1)-(b.category==="event"?0:1) || (pr[a.priority]??9)-(pr[b.priority]??9) || (a.createdAt-b.createdAt);
+  const range = AGENDA_RANGES.includes(state.agendaRange) ? state.agendaRange : "week";
+  $$(".agendaRanges [data-range]").forEach((b) => {
+    const on = b.dataset.range === range;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", String(on));
   });
-  undated.sort((a,b)=> (a.category==="event"?0:1)-(b.category==="event"?0:1) || (pr[a.priority]??9)-(pr[b.priority]??9) || (a.createdAt-b.createdAt));
 
-  // group
+  const today = toISODate(new Date());
+  const { from, to } = agendaRangeWindow(range);
+  const items = (state.agenda || []).map(normalizeAgendaItem).sort(agendaSort);
+
+  // Pending entries from earlier days stay visible until they are checked off.
+  const overdue = from ? items.filter((a) => a.date && a.date < today && !a.done) : [];
+  const inRange = items.filter((a) => a.date && (!from || (a.date >= from && a.date < to)));
+  const undated = items.filter((a) => !a.date);
+
   const groups = new Map();
-  for (const t of dated){
-    const iso = taskPrimaryISO(t);
-    if (!groups.has(iso)) groups.set(iso, []);
-    groups.get(iso).push(t);
+  for (const a of inRange) {
+    if (!groups.has(a.date)) groups.set(a.date, []);
+    groups.get(a.date).push(a);
   }
 
-  const groupKeys = [...groups.keys()].sort((a,b)=>a.localeCompare(b));
-  const parts = [];
+  const dayTitle = (iso) => {
+    const label = readableDate(iso);
+    const full = parseISODate(iso).toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
+    return label === "Hoy" || label === "Mañana" || label === "Ayer" ? `${label} · ${full}` : full;
+  };
+  const section = (title, list, cls = "") => `<section class="agendaDay ${cls}">
+      <h3 class="agendaDayHead">${escapeHtml(title)}<span class="agendaDayCount">${list.length}</span></h3>
+      <div class="agendaItems">${list.map(agendaItemHtml).join("")}</div>
+    </section>`;
 
-  if (groupKeys.length === 0 && undated.length === 0){
-    host.innerHTML = `<div class="empty">No hay tareas en este rango.</div>`;
+  const parts = [];
+  if (overdue.length) parts.push(section("Pendiente de días anteriores", overdue, "overdue"));
+  for (const [iso, list] of groups) parts.push(section(dayTitle(iso), list, iso === today ? "isToday" : ""));
+  if (undated.length) parts.push(section("Sin fecha", undated));
+
+  if (!parts.length) {
+    const hasAny = (state.agenda || []).length > 0;
+    host.innerHTML = `<div class="agendaEmpty">${trxIcon("calendar")}<h3>${hasAny ? "Nada en este rango" : "Tu agenda está libre"}</h3><p class="muted">${hasAny ? "Prueba con otro rango o añade una entrada nueva." : "Apunta citas, llamadas o recordatorios. No se mezclan con tus tareas ni con el calendario."}</p><button class="btn primary" type="button" data-agenda-new>${trxIcon("plus")}Nueva entrada</button></div>`;
     return;
   }
-
-  for (const iso of groupKeys){
-    const day = parseISODate(iso);
-    const title = day ? day.toLocaleDateString(undefined, { weekday:"long", day:"2-digit", month:"long" }) : iso;
-    parts.push(`<div class="agendaDay">
-      <div class="agendaDayHead">${escapeHtml(title)}</div>
-      <div class="agendaItems">${groups.get(iso).map(t=>agendaItemHtml(t)).join("")}</div>
-    </div>`);
-  }
-
-  if (undated.length){
-    parts.push(`<div class="agendaDay">
-      <div class="agendaDayHead">Sin fecha</div>
-      <div class="agendaItems">${undated.map(t=>agendaItemHtml(t)).join("")}</div>
-    </div>`);
-  }
-
   host.innerHTML = parts.join("");
-
-  // click item -> editar
-  if (!host.dataset.bound){
-    host.dataset.bound = "1";
-    host.addEventListener("click", (e)=>{
-      const row = e.target.closest(".agendaItem");
-      if (!row || !host.contains(row)) return;
-      const id = row.dataset.id;
-      const t = state.tasks.find(x=>x.id===id);
-      if (t) openEdit(t);
-    });
-  }
 }
 
-function agendaItemHtml(t){
-  const typeTxt = t.category === "event" ? "Evento" : "Tarea";
-  const whenStart = t.startTime ? fmtTime(t.startTime) : "";
-  const whenEnd = t.endTime ? fmtTime(t.endTime) : "";
-  const timeTxt = whenStart || whenEnd ? `${whenStart}${whenEnd ? `–${whenEnd}` : ""}` : "";
-  const tags = (t.tags||[]).slice(0,3).map(tag=>`<span class="tag" style="--h:${tagHue(tag)}">${escapeHtml(tag)}</span>`).join("");
-  const style = t.color ? `style="--task-border:${t.color}"` : "";
-  const extra = t.color ? "hasColor" : "";
-  return `<div class="agendaItem ${t.status} ${extra}" data-id="${escapeHtml(t.id)}" ${style}>
-    <div class="agendaMain">
-      <div class="agendaTitle">${taskColorMarker(t.color)}${escapeHtml(t.title)}</div>
-      <div class="agendaMeta">
-        <span class="chip mini">${escapeHtml(typeTxt)}</span>
-        ${timeTxt ? `<span class="chip mini subtle">${escapeHtml(timeTxt)}</span>` : ""}
-        <span class="chip mini subtle">${escapeHtml(prBadge(t.priority).txt)}</span>
-      </div>
-    </div>
-    <div class="agendaTags">${tags}</div>
+function agendaItemHtml(a) {
+  const title = escapeHtml(a.title);
+  return `<div class="agEntry${a.done ? " done" : ""}" data-agenda-id="${escapeHtml(a.id)}">
+    <input type="checkbox" class="agCheck" ${a.done ? "checked" : ""} aria-label="Marcar ${title} como hecha" />
+    <span class="agTime">${a.time ? escapeHtml(a.time) : "Todo el día"}</span>
+    <button type="button" class="agMain" data-agenda-edit aria-label="Editar ${title}">
+      <span class="agTitle">${title}</span>
+      ${a.note ? `<span class="agNote">${escapeHtml(a.note)}</span>` : ""}
+    </button>
+    <span class="agActions">
+      <button type="button" class="btn ghost sm" data-agenda-edit aria-label="Editar ${title}" title="Editar">${trxIcon("edit")}</button>
+      <button type="button" class="btn danger sm" data-agenda-del aria-label="Eliminar ${title}" title="Eliminar">${trxIcon("trash")}</button>
+    </span>
   </div>`;
+}
+
+let agendaEditId = null;
+
+function openAgendaModal(id = null) {
+  const item = id ? (state.agenda || []).find((a) => a.id === id) : null;
+  if (!item && guestBlocked("añadir a la agenda")) return;
+  agendaEditId = item ? item.id : null;
+
+  // New entries start on the first day of the range being viewed.
+  const range = state.agendaRange || "week";
+  const defaultDate = range === "all" ? "" : agendaRangeWindow(range).from;
+  $("#agendaModalTitle").textContent = item ? "Editar entrada" : "Nueva entrada";
+  $("#agendaSave").textContent = item ? "Guardar" : "Añadir";
+  $("#agendaDelete").hidden = !item;
+  $("#agendaTitle").value = item ? item.title : "";
+  $("#agendaDate").value = item ? item.date : defaultDate;
+  $("#agendaTime").value = item ? item.time : "";
+  $("#agendaNote").value = item ? item.note : "";
+
+  const m = $("#agendaModal");
+  m.classList.add("show");
+  m.setAttribute("aria-hidden", "false");
+  setTimeout(() => $("#agendaTitle")?.focus(), 30);
+}
+
+function closeAgendaModal() {
+  agendaEditId = null;
+  const m = $("#agendaModal");
+  m.classList.remove("show");
+  m.setAttribute("aria-hidden", "true");
+}
+
+function saveAgendaFromModal() {
+  const fields = {
+    title: $("#agendaTitle").value.trim(),
+    date: $("#agendaDate").value || "",
+    time: $("#agendaTime").value || "",
+    note: $("#agendaNote").value.trim(),
+  };
+  if (!fields.title) { $("#agendaTitle").focus(); return; }
+
+  if (agendaEditId) {
+    if (guestBlocked("editar la agenda")) return;
+    const item = (state.agenda || []).find((a) => a.id === agendaEditId);
+    if (item) Object.assign(item, fields, { updatedAt: Date.now() });
+    toast({ title: "Agenda", message: "Entrada actualizada", type: "ok", timeout: 1400 });
+  } else {
+    if (guestBlocked("añadir a la agenda")) return;
+    state.agenda = [normalizeAgendaItem({ ...fields, id: uid(), done: false, createdAt: Date.now() }), ...(state.agenda || [])];
+    toast({ title: "Agenda", message: fields.title, type: "ok", timeout: 1400 });
+  }
+  markActivity();
+  save();
+  closeAgendaModal();
+  renderAgenda();
+}
+
+function toggleAgendaDone(id, done) {
+  if (guestBlocked("editar la agenda")) { renderAgenda(); return; }
+  const item = (state.agenda || []).find((a) => a.id === id);
+  if (!item) return;
+  item.done = done;
+  item.updatedAt = Date.now();
+  save();
+  renderAgenda();
+}
+
+function deleteAgendaItem(id) {
+  if (guestBlocked("eliminar de la agenda")) return;
+  const idx = (state.agenda || []).findIndex((a) => a.id === id);
+  if (idx === -1) return;
+  const item = state.agenda[idx];
+  state.agenda = state.agenda.filter((a) => a.id !== id);
+  cloudMarkDeleted(CLOUD.delTasksKey, id);
+  save();
+  renderAgenda();
+  offerUndo({
+    title: "Entrada eliminada",
+    message: item.title,
+    onUndo: () => {
+      state.agenda.splice(Math.min(idx, state.agenda.length), 0, item);
+      cloudUnmarkDeleted(CLOUD.delTasksKey, id);
+      save();
+      renderAgenda();
+    },
+  });
+}
+
+function bindAgenda() {
+  const setRange = (range) => {
+    state.agendaRange = range;
+    save({ sync: false });
+    renderAgenda();
+  };
+  $$(".agendaRanges [data-range]").forEach((b) => b.addEventListener("click", () => setRange(b.dataset.range)));
+
+  $("#btnAgendaNew")?.addEventListener("click", () => openAgendaModal());
+  $("#agendaForm")?.addEventListener("submit", (e) => { e.preventDefault(); saveAgendaFromModal(); });
+  $("#agendaCancel")?.addEventListener("click", closeAgendaModal);
+  $("#agendaModalX")?.addEventListener("click", closeAgendaModal);
+  $("#agendaModal")?.addEventListener("click", (e) => { if (e.target.closest("[data-close-agenda]")) closeAgendaModal(); });
+  $("#agendaDelete")?.addEventListener("click", () => {
+    const id = agendaEditId;
+    closeAgendaModal();
+    if (id) deleteAgendaItem(id);
+  });
+  $("#agendaNote")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveAgendaFromModal(); }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && $("#agendaModal")?.classList.contains("show")) closeAgendaModal();
+  });
+
+  const list = $("#agendaList");
+  list?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-agenda-new]")) { openAgendaModal(); return; }
+    const row = e.target.closest("[data-agenda-id]");
+    if (!row) return;
+    if (e.target.closest("[data-agenda-del]")) deleteAgendaItem(row.dataset.agendaId);
+    else if (e.target.closest("[data-agenda-edit]")) openAgendaModal(row.dataset.agendaId);
+  });
+  list?.addEventListener("change", (e) => {
+    const chk = e.target.closest(".agCheck");
+    const row = e.target.closest("[data-agenda-id]");
+    if (chk && row) toggleAgendaDone(row.dataset.agendaId, chk.checked);
+  });
 }
 
 
@@ -501,16 +602,7 @@ function bindUx() {
   }
 
   // agenda
-  const setAg = (range) => {
-    state.agendaRange = range;
-    save();
-    renderAgenda();
-  };
-  $("#agToday")?.addEventListener("click", ()=> setAg("today"));
-  $("#agTomorrow")?.addEventListener("click", ()=> setAg("tomorrow"));
-  $("#agWeek")?.addEventListener("click", ()=> setAg("week"));
-  $("#agMonth")?.addEventListener("click", ()=> setAg("month"));
-  $("#agAll")?.addEventListener("click", ()=> setAg("all"));
+  bindAgenda();
   // temporizador
   bindTimer();
 

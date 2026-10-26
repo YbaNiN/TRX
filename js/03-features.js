@@ -296,12 +296,6 @@ if (cloudIsReady()) {
 }
 }
 
-function cloudUnmarkDeleted(key, id) {
-  const arr = cloudGetDeleted(key);
-  const next = arr.filter((x) => x !== id);
-  localStorage.setItem(key, JSON.stringify(next));
-}
-
 /* ---- Sharing ---- */
 async function maybeLoadShares(listId) {
   const panel = $("#listSharePanel");
@@ -431,6 +425,8 @@ function bindLists() {
 let timerTickHandle = null;
 // Evita pisar inputs mientras el usuario escribe (p.ej. ajustes Pomodoro)
 let _lastTimerUiMode = null;
+// True while the browser tab title shows the running countdown.
+let _timerOwnsTitle = false;
 
 function clampTimerParts(min, sec){
   const m = Math.max(0, Math.min(999, Number(min) || 0));
@@ -538,7 +534,7 @@ function setTimerMode(mode){
     state.timer.endAt = null;
   } else {
     // vuelve al último temporizador normal
-    const dur = Math.max(1000, Number(state.timer.lastTimerDurationMs) || 25*1000);
+    const dur = Math.max(1000, Number(state.timer.lastTimerDurationMs) || 25*60*1000);
     state.timer.durationMs = dur;
     state.timer.remainingMs = dur;
     state.timer.endAt = null;
@@ -721,29 +717,68 @@ function deletePomodoroPresetById(id){
   }
 }
 
-function pomodoroAdvance(){
+// Moves to the next phase. A finished work phase counts as one pomodoro and
+// every `longEvery` pomodoros the break is the long one.
+function pomodoroNextPhase(){
   const p = state.timer.pomodoro;
-
   if (p.phase === "work"){
     p.completed = (Number(p.completed) || 0) + 1;
-    const useLong = (p.completed % p.longEvery) === 0;
-    p.phase = useLong ? "long" : "short";
+    p.phase = (p.completed % p.longEvery) === 0 ? "long" : "short";
   } else {
     p.phase = "work";
   }
+}
+
+// endedAt: when the previous phase really ended. With auto-advance the next
+// phase starts at that moment, so time spent with TRX closed is not lost.
+function pomodoroAdvance({ endedAt = Date.now(), autoStart = state.timer.pomodoro.autoAdvance } = {}){
+  const p = state.timer.pomodoro;
+  pomodoroNextPhase();
 
   const dur = pomoPhaseDurationMs(p.phase);
+  const now = Date.now();
   state.timer.durationMs = dur;
-  state.timer.remainingMs = dur;
-  state.timer.endAt = null;
   state.timer.finishedAt = null;
+
+  if (autoStart && endedAt + dur > now){
+    state.timer.running = true;
+    state.timer.endAt = endedAt + dur;
+    state.timer.remainingMs = state.timer.endAt - now;
+  } else {
+    // Either auto-advance is off, or the next phase would also have ended
+    // while TRX was closed: wait at its start instead of counting phantom pomodoros.
+    state.timer.running = false;
+    state.timer.endAt = null;
+    state.timer.remainingMs = dur;
+  }
 
   save();
   renderTimerUI(true);
+}
 
-  if (p.autoAdvance){
-    timerStart();
-  }
+// "Siguiente fase": ends the current phase now.
+function pomodoroSkip(){
+  if (state.timer.mode !== "pomodoro") return;
+  const wasRunning = state.timer.running;
+  const label = pomoPhaseLabel(state.timer.pomodoro.phase);
+  pomodoroAdvance({ endedAt: Date.now(), autoStart: wasRunning });
+  toast({ title:"Pomodoro", message:`${label} terminado. Ahora: ${pomoPhaseLabel(state.timer.pomodoro.phase).toLowerCase()}.`, type:"info", timeout: 1600 });
+}
+
+// Starts a new cycle: back to work and the pomodoro counter at zero.
+function pomodoroResetCycle(){
+  const p = state.timer.pomodoro;
+  p.phase = "work";
+  p.completed = 0;
+  const dur = pomoPhaseDurationMs("work");
+  state.timer.running = false;
+  state.timer.endAt = null;
+  state.timer.finishedAt = null;
+  state.timer.durationMs = dur;
+  state.timer.remainingMs = dur;
+  save();
+  renderTimerUI(true);
+  toast({ title:"Pomodoro", message:"Ciclo reiniciado", type:"info", timeout: 1200 });
 }
 
 
@@ -768,24 +803,21 @@ function timerPause(){
   renderTimerUI();
 }
 
+// Restarts the current countdown. In Pomodoro mode the phase and the counter
+// are kept; "Reiniciar ciclo" is the action that starts over.
 function timerReset(){
   state.timer.running = false;
   state.timer.endAt = null;
   state.timer.finishedAt = null;
 
   if (state.timer.mode === "pomodoro"){
-    state.timer.pomodoro.phase = "work";
-    state.timer.pomodoro.completed = 0;
-    const dur = pomoPhaseDurationMs("work");
-    state.timer.durationMs = dur;
-    state.timer.remainingMs = dur;
-  } else {
-    state.timer.remainingMs = state.timer.durationMs;
+    state.timer.durationMs = pomoPhaseDurationMs(state.timer.pomodoro.phase);
   }
+  state.timer.remainingMs = state.timer.durationMs;
 
   save();
   renderTimerUI(true);
-  toast({ title:"Temporizador", message:"Reiniciado", type:"info", timeout: 1200 });
+  toast({ title: state.timer.mode === "pomodoro" ? "Pomodoro" : "Temporizador", message:"Fase reiniciada", type:"info", timeout: 1200 });
 }
 
 function playBeep(vol=0.5){
@@ -816,6 +848,7 @@ function playBeep(vol=0.5){
 }
 
 function timerFinished(){
+  const endedAt = state.timer.endAt || Date.now();
   state.timer.running = false;
   state.timer.endAt = null;
   state.timer.remainingMs = 0;
@@ -826,12 +859,17 @@ function timerFinished(){
   const isPomo = state.timer.mode === "pomodoro";
   const p = state.timer.pomodoro;
 
-  const title = isPomo ? "🍅 Pomodoro" : "⏱ Temporizador";
-  const phaseTxt = isPomo ? pomoPhaseLabel(p.phase) : "";
-  const msg = isPomo ? `Fin: ${phaseTxt}` : "¡Tiempo!";
+  const title = isPomo ? "Pomodoro" : "Temporizador";
+  let msg = "Temporizador finalizado";
+  if (isPomo){
+    const nextIsLong = p.phase === "work" && ((Number(p.completed) || 0) + 1) % p.longEvery === 0;
+    msg = p.phase === "work"
+      ? `Buen trabajo. Toca ${nextIsLong ? `un descanso largo de ${p.longMin}` : `un descanso de ${p.shortMin}`} min.`
+      : "Descanso terminado. A por el siguiente pomodoro.";
+  }
 
-  pushNotif({ title, message: msg, type:"ok" });
-  toast({ title, message: isPomo ? msg : "Temporizador finalizado", type:"ok" });
+  // toast() also records the message in the notification center.
+  toast({ title, message: msg, type:"ok", timeout: 5000 });
 
   const vol = Number(state.timer.volume || 0);
   if (vol > 0) playBeep(vol);
@@ -842,9 +880,9 @@ function timerFinished(){
     } catch {}
   }
 
-  // Pomodoro: avanza a la siguiente fase (si auto está activado)
+  // Pomodoro: avanza a la siguiente fase (y la arranca si "Auto-cambiar" está activo)
   if (isPomo){
-    pomodoroAdvance();
+    pomodoroAdvance({ endedAt });
   }
 }
 
@@ -890,23 +928,51 @@ function renderTimerUI(force = false){
   const rem = Math.max(0, Number(state.timer.remainingMs) || 0);
   digits.textContent = fmtTimer(rem);
 
-  const p = 1 - (rem / dur);
-  ring.style.setProperty("--timer-p", String(Math.max(0, Math.min(1, p))));
+  const p = Math.max(0, Math.min(1, 1 - (rem / dur)));
+  ring.style.setProperty("--timer-p", String(p));
+  ring.classList.toggle("isIdle", p <= 0);
+  ring.dataset.phase = state.timer.mode === "pomodoro" ? state.timer.pomodoro.phase : "timer";
 
-  if (state.timer.mode === "pomodoro"){
-    const ph = state.timer.pomodoro.phase;
-    const done = Number(state.timer.pomodoro.completed) || 0;
+  const isPomo = state.timer.mode === "pomodoro";
+  if (isPomo){
+    const pomo = state.timer.pomodoro;
+    const ph = pomo.phase;
+    const done = Number(pomo.completed) || 0;
+    // Position inside the current cycle, e.g. "Pomodoro 2 de 4"
+    const inCycle = ph === "work" ? (done % pomo.longEvery) + 1 : (done === 0 ? 1 : (done % pomo.longEvery || pomo.longEvery));
     if (phaseEl) phaseEl.textContent = pomoPhaseLabel(ph);
-    if (countEl) countEl.textContent = `${done} pomodoro${done === 1 ? "" : "s"}`;
-    if (meta) meta.textContent = `${pomoPhaseLabel(ph)} · ${fmtTimer(dur)} · Total: ${done}`;
+    if (countEl) countEl.textContent = `Pomodoro ${inCycle} de ${pomo.longEvery} · ${done} completado${done === 1 ? "" : "s"}`;
+    if (meta) meta.textContent = ph === "work"
+      ? `Después: descanso ${((done + 1) % pomo.longEvery) === 0 ? `largo (${pomo.longMin} min)` : `(${pomo.shortMin} min)`}`
+      : `Después: trabajo (${pomo.workMin} min)`;
+    $$(".pomoPhaseBtn").forEach((b) => {
+      const on = b.dataset.phase === ph;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
   } else {
     if (phaseEl) phaseEl.textContent = "";
     if (countEl) countEl.textContent = "";
     if (meta) meta.textContent = `Duración: ${fmtTimer(dur)}`;
   }
 
-  if (startBtn) startBtn.disabled = state.timer.running;
+  const paused = !state.timer.running && rem > 0 && rem < dur;
+  if (startBtn){
+    startBtn.disabled = state.timer.running;
+    startBtn.textContent = paused ? "Continuar" : "Iniciar";
+  }
   if (pauseBtn) pauseBtn.disabled = !state.timer.running;
+
+  // Remaining time in the browser tab while a session runs.
+  if (state.timer.running){
+    document.title = `${fmtTimer(rem)} · ${isPomo ? pomoPhaseLabel(state.timer.pomodoro.phase) : "Temporizador"} · TRX`;
+    _timerOwnsTitle = true;
+  } else if (_timerOwnsTitle){
+    _timerOwnsTitle = false;
+    const activeTab = document.querySelector(".tab.active")?.dataset.tab;
+    document.title = `${(typeof PAGE_NAMES !== "undefined" && PAGE_NAMES[activeTab]) || "TRX"} · TRX`;
+  }
+  if (typeof renderHomeFocus === "function") renderHomeFocus();
 
   if (volSel && (force || !volSel.dataset.bound)){
     volSel.value = String(state.timer.volume ?? 0.5);
@@ -970,6 +1036,8 @@ function bindTimer(){
   if (bWork) bWork.addEventListener("click", ()=>{ if (state.timer.mode !== "pomodoro") setTimerMode("pomodoro"); setPomodoroPhase("work"); });
   if (bShort) bShort.addEventListener("click", ()=>{ if (state.timer.mode !== "pomodoro") setTimerMode("pomodoro"); setPomodoroPhase("short"); });
   if (bLong) bLong.addEventListener("click", ()=>{ if (state.timer.mode !== "pomodoro") setTimerMode("pomodoro"); setPomodoroPhase("long"); });
+  $("#pomoSkip")?.addEventListener("click", pomodoroSkip);
+  $("#pomoCycleReset")?.addEventListener("click", pomodoroResetCycle);
 
   const pWork = $("#pomoWork");
   const pShort = $("#pomoShort");
@@ -1190,7 +1258,9 @@ function deleteTask(id) {
   if (idx === -1) return;
   const t = state.tasks[idx];
   state.tasks = state.tasks.filter(x => x.id !== id);
-  try { if (cloudIsReady()) cloudAddDeleted(CLOUD.delTasksKey, id); } catch {}
+  // Always queue the delete: the cloud may still be connecting, and a task
+  // left on the server would be downloaded again on the next start.
+  cloudMarkDeleted(CLOUD.delTasksKey, id);
   markActivity();
   save();
   renderAll();
@@ -1199,7 +1269,7 @@ function deleteTask(id) {
     message: t?.title || "",
     onUndo: () => {
       state.tasks.splice(Math.min(idx, state.tasks.length), 0, t);
-      try { if (cloudIsReady()) cloudUnmarkDeleted(CLOUD.delTasksKey, id); } catch {}
+      cloudUnmarkDeleted(CLOUD.delTasksKey, id);
       save();
       renderAll();
     },
@@ -1488,13 +1558,15 @@ function renderNotes() {
       el.dataset.id = n.id;
 
       const created = new Date(n.createdAt).toLocaleString();
+      const edited = n.updatedAt && n.updatedAt - n.createdAt > 60000 ? " · editada" : "";
       el.innerHTML = `
         <div class="noteTop">
-          <div class="noteText">${escapeHtml(n.text)}</div>
+          <div class="noteText" title="Doble clic para editar">${escapeHtml(n.text)}</div>
         </div>
         <div class="noteMeta2">
-          <span class="muted">${created}</span>
+          <span class="muted">${created}${edited}</span>
           <div class="noteBtns">
+            <button class="noteBtn edit" type="button" title="Editar" aria-label="Editar nota">${trxIcon('edit')}</button>
             <button class="noteBtn pin" type="button" title="${n.pinned?"Desfijar":"Fijar"}" aria-label="${n.pinned?'Desfijar nota':'Fijar nota'}" aria-pressed="${n.pinned}">${trxIcon('pin')}</button>
             <button class="noteBtn danger del" type="button" title="Eliminar" aria-label="Eliminar nota">${trxIcon('trash')}</button>
           </div>
@@ -1502,6 +1574,8 @@ function renderNotes() {
       `;
       container.appendChild(el);
 
+      el.querySelector(".edit").addEventListener("click", ()=> startNoteEdit(el, n.id));
+      el.querySelector(".noteText").addEventListener("dblclick", ()=> startNoteEdit(el, n.id));
       el.querySelector(".pin").addEventListener("click", ()=> togglePinNote(n.id));
       el.querySelector(".del").addEventListener("click", ()=>{
         // Usa el modal de confirmación estándar
@@ -1596,6 +1670,60 @@ function addNote(text){
   renderNotes();
 }
 
+function updateNote(id, text){
+  if (guestBlocked("editar notas")) return false;
+  const v = String(text||"").trim();
+  const n = state.notes.find(x=>x.id===id);
+  if (!n || !v) return false;
+  if (n.text !== v){
+    n.text = v;
+    n.updatedAt = Date.now();
+    save();
+  }
+  renderNotes();
+  return true;
+}
+
+// Swaps the note text for an editor inside the same card.
+function startNoteEdit(el, id){
+  if (guestBlocked("editar notas")) return;
+  const n = state.notes.find(x=>x.id===id);
+  const textEl = el.querySelector(".noteText");
+  if (!n || !textEl || el.classList.contains("editing")) return;
+
+  el.classList.add("editing");
+  const editor = document.createElement("div");
+  editor.className = "noteEditor";
+  editor.innerHTML = `
+    <textarea class="noteEditInput" aria-label="Editar nota" rows="${Math.min(10, Math.max(3, n.text.split("\n").length + 1))}"></textarea>
+    <div class="noteEditActions">
+      <span class="noteEditHint">Ctrl + Enter: guardar · Esc: cancelar</span>
+      <button type="button" class="btn ghost sm noteEditCancel">Cancelar</button>
+      <button type="button" class="btn primary sm noteEditSave">Guardar</button>
+    </div>`;
+  const input = editor.querySelector("textarea");
+  input.value = n.text;
+  textEl.replaceWith(editor);
+
+  const cancel = () => renderNotes();
+  const commit = () => {
+    if (!input.value.trim()){
+      toast({ title:"Nota", message:"La nota no puede quedar vacía. Usa la papelera para borrarla.", type:"warn" });
+      input.focus();
+      return;
+    }
+    if (updateNote(id, input.value)) toast({ title:"Nota", message:"Actualizada", type:"ok", timeout: 1200 });
+  };
+  editor.querySelector(".noteEditSave").addEventListener("click", commit);
+  editor.querySelector(".noteEditCancel").addEventListener("click", cancel);
+  input.addEventListener("keydown", (e)=>{
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.isComposing){ e.preventDefault(); commit(); }
+    if (e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); cancel(); }
+  });
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+
 function togglePinNote(id){
   if (guestBlocked("editar notas")) return;
   const n = state.notes.find(x=>x.id===id);
@@ -1611,7 +1739,7 @@ function deleteNote(id){
   if (idx === -1) return;
   const n = state.notes[idx];
   state.notes = state.notes.filter(x=>x.id!==id);
-  try { if (cloudIsReady()) cloudAddDeleted(CLOUD.delNotesKey, id); } catch {}
+  cloudMarkDeleted(CLOUD.delNotesKey, id);
   save();
   renderNotes();
   offerUndo({
@@ -1619,7 +1747,7 @@ function deleteNote(id){
     message: n?.text || "",
     onUndo: () => {
       state.notes.splice(Math.min(idx, state.notes.length), 0, n);
-      try { if (cloudIsReady()) cloudUnmarkDeleted(CLOUD.delNotesKey, id); } catch {}
+      cloudUnmarkDeleted(CLOUD.delNotesKey, id);
       save();
       renderNotes();
     },
@@ -1918,7 +2046,7 @@ function initClock() {
 async function resetAll() {
   const ok = await openModal({
     title: "Reiniciar",
-    desc: "Se borrarán tareas, notas y estadísticas guardadas localmente.",
+    desc: "Se borrarán tareas, notas, agenda y estadísticas guardadas localmente.",
     okText: "Reiniciar",
     cancelText: "Cancelar"
   });
@@ -1926,12 +2054,14 @@ async function resetAll() {
 
   localStorage.removeItem(LS.tasks);
   localStorage.removeItem(LS.notes);
+  localStorage.removeItem(LS.agenda);
   localStorage.removeItem(LS.activity);
   localStorage.removeItem(LS.notifs);
   localStorage.removeItem(LS.timer);
 
   state.tasks = [];
   state.notes = [];
+  state.agenda = [];
   state.activityDays = [];
   state.notifs = [];
   state.tagFilter = null;

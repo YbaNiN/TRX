@@ -304,3 +304,58 @@ body:not(.light) .skipLink{color:#152142}
 .agendaTags{display:flex;flex-wrap:wrap;justify-content:flex-end;max-width:40%}
 .notesBar{align-items:flex-start}.notesBar textarea{flex:1;width:100%;min-width:0;resize:vertical;line-height:1.5;min-height:90px}
 @media(max-width:480px){.agendaItem{flex-wrap:wrap}.agendaTags{max-width:100%;justify-content:flex-start}.calChip .taskColorDot{display:none!important}}
+
+/* Notes: inline editing inside the card. */
+.note.editing{outline:2px solid var(--accent);outline-offset:-2px}
+.note.editing .noteBtns{display:none}
+.noteEditor{display:flex;flex-direction:column;gap:10px}
+.noteEditInput{width:100%;min-height:96px;resize:vertical;font-size:13px;line-height:1.6;background:var(--surface)!important;color:var(--text)!important}
+.noteEditActions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
+.noteEditHint{margin-right:auto;font-size:11px;opacity:.8}
+.quickNotes .noteEditHint{display:none}
+
+/* Timer: controls sit right under the ring so they are reachable without scrolling. */
+.timerStage{min-width:0;display:flex;flex-direction:column}
+.timerStage .timerActions{margin-top:16px}
+.timerButtons{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
+.timerButtons .btn{min-width:0;width:100%}
+#timer[data-mode="pomodoro"] .timerButtons{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:1181px){#timer[data-mode="pomodoro"] .timerButtons{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.timerStage .timerMeta{margin-top:12px;padding-top:0;border:0}
+.timerRing.isIdle .timerProg{opacity:0}
+.timerRing[data-phase="short"] .timerProg,.timerRing[data-phase="long"] .timerProg{stroke:var(--success)}
+.timerRing[data-phase="short"] .timerPhase,.timerRing[data-phase="long"] .timerPhase{color:var(--success)}
+.pomoPhaseBtn.active{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+#pomoCycleReset{color:var(--muted)}
+@media(max-width:520px){.timerButtons{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+
+/* Agenda: own entries, grouped by day. */
+.agendaRanges{display:inline-flex;flex-wrap:wrap;margin-top:18px}
+.agendaRanges .segBtn{min-height:34px}
+.agendaDayHead{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin:0}
+.agendaDayHead::first-letter{text-transform:uppercase}
+.agendaDayCount{margin-left:auto;font-size:11px;font-weight:600;color:var(--muted);background:var(--surface);border-radius:5px;padding:1px 7px}
+.agendaDay.isToday .agendaDayHead{color:var(--accent)}
+.agendaDay.overdue .agendaDayHead{color:var(--amber)}
+.agendaList{display:flex;flex-direction:column;gap:16px}.agendaList .agendaDay{margin-bottom:0}
+.agEntry{display:grid;grid-template-columns:auto 76px minmax(0,1fr) auto;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--stroke);background:var(--surface)}
+.agEntry:last-child{border-bottom:0}
+.agTime{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.agMain{all:unset;box-sizing:border-box;min-width:0;cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:4px 0;border-radius:6px}
+.agMain:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.agTitle{font-size:13px;font-weight:550;overflow-wrap:anywhere}
+.agNote{font-size:12px;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.agActions{display:flex;gap:6px}
+.agActions .btn{padding:5px;min-height:30px;width:30px}
+.agActions .uiIcon{width:15px;height:15px}
+.agEntry.done .agTitle{text-decoration:line-through;color:var(--muted)}
+.agEntry.done .agTime{opacity:.6}
+.agendaEmpty{text-align:center;padding:42px 20px;max-width:420px;margin:12px auto 0}
+.agendaEmpty>.uiIcon{color:var(--accent);width:29px;height:29px;margin-bottom:12px}
+.agendaEmpty h3{font-size:17px;margin-bottom:7px}.agendaEmpty p{font-size:12px;margin:0 0 18px}
+@media(max-width:520px){
+  .agEntry{grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"chk time act" "chk main act";row-gap:2px;column-gap:12px;padding:12px 14px}
+  .agCheck{grid-area:chk}.agTime{grid-area:time;font-size:11px}.agMain{grid-area:main;padding:0}.agActions{grid-area:act}
+  .agendaRanges{display:flex;flex-wrap:nowrap;overflow-x:auto;max-width:100%}
+  .agendaRanges .segBtn{flex:none}
+}

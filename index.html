@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TRX Panel</title>
   <link rel="stylesheet" href="style.css?v=32" />
-  <link rel="stylesheet" href="design.css?v=35" />
+  <link rel="stylesheet" href="design.css?v=36" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2b6cff" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -142,6 +142,49 @@
     </div>
   </div>
 
+  <!-- Agenda entry modal (create + edit). Agenda entries never appear in the calendar. -->
+  <div id="agendaModal" class="modal" aria-hidden="true">
+    <div class="modalBackdrop" data-close-agenda="1"></div>
+    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="agendaModalTitle">
+      <div class="modalHead">
+        <div>
+          <div id="agendaModalTitle" class="modalTitle">Nueva entrada</div>
+          <div class="modalDesc">Se guarda solo en tu agenda, no en el calendario.</div>
+        </div>
+        <button class="iconBtn" id="agendaModalX" type="button" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="agendaForm" class="formGrid">
+        <div class="field">
+          <label class="lbl" for="agendaTitle">Qué</label>
+          <input id="agendaTitle" type="text" maxlength="120" placeholder="Por ejemplo, Llamar al dentista" autocomplete="off" required />
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label class="lbl" for="agendaDate">Fecha</label>
+            <input id="agendaDate" type="date" />
+          </div>
+          <div class="field">
+            <label class="lbl" for="agendaTime">Hora (opcional)</label>
+            <input id="agendaTime" type="time" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="lbl" for="agendaNote">Nota (opcional)</label>
+          <textarea id="agendaNote" rows="3" maxlength="1000" placeholder="Dirección, teléfono, qué llevar…"></textarea>
+        </div>
+
+        <div class="modalActions">
+          <button id="agendaDelete" class="btn danger" type="button" hidden>Eliminar</button>
+          <button id="agendaCancel" class="btn ghost" type="button">Cancelar</button>
+          <button class="btn primary" type="submit" id="agendaSave">Añadir</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Command Palette -->
   <div id="cmdk" class="modal" aria-hidden="true">
     <div class="modalBackdrop" data-close-cmdk="1"></div>
@@ -260,7 +303,7 @@
           <div class="homeMain">
             <section class="weekPlanner" aria-label="Plan de la semana"><div class="sectionHeading"><h2>Una semana de posibilidades</h2><button class="textButton" type="button" data-go="calendar">Ver calendario <span data-icon="arrow"></span></button></div><div id="weekStrip" class="weekStrip"></div></section>
             <section class="todaySection"><div class="sectionHeading"><h2 id="todayTitle">Tu plan de hoy <span class="countBadge" id="todayCount">0</span></h2><button class="textButton" type="button" data-go="tasks">Todas las tareas <span data-icon="arrow"></span></button></div><div id="todayTasks" class="todayTasks"></div><button class="inlineAdd" type="button" data-create-task><span data-icon="plus"></span>Haz sitio a tu próxima tarea</button></section>
-            <section class="upcomingSection"><div class="sectionHeading"><h2>En el horizonte</h2><button class="textButton" type="button" data-go="agenda">Abrir agenda <span data-icon="arrow"></span></button></div><div id="upcomingTasks" class="upcomingTasks"></div></section>
+            <section class="upcomingSection"><div class="sectionHeading"><h2>En el horizonte</h2><button class="textButton" type="button" data-go="calendar">Ver calendario <span data-icon="arrow"></span></button></div><div id="upcomingTasks" class="upcomingTasks"></div></section>
           </div>
           <aside class="homeAside" aria-label="Concentración y notas">
             <section class="focusCard"><div class="focusTop"><span data-icon="timer"></span><span>Un momento de foco</span><span class="focusMark">TRX</span></div><h2>Una cosa.<br> Toda tu atención.</h2><p>Deja el ruido fuera.<br> Dedica este momento a avanzar.</p><div class="focusDuration"><strong id="focusDuration">25</strong><span id="focusUnit">minutos para ti</span><div class="focusOrbit" aria-hidden="true"><i></i><i></i><i></i></div></div><button class="btn focusButton" id="homeFocus" type="button"><span data-icon="play"></span><span id="homeFocusLabel">Preparar sesión</span><span data-icon="arrow"></span></button></section>
@@ -443,19 +486,20 @@
           <div class="row spread" style="gap:12px; align-items:flex-end; flex-wrap:wrap">
             <div>
               <div class="h2">Agenda</div>
-              <div class="muted">Tu próximo paso, organizado por fecha.</div>
+              <div class="muted">Citas, llamadas y recordatorios. Lo que anotes aquí no aparece en el calendario.</div>
             </div>
-
-            <div class="row" style="gap:8px; flex-wrap:wrap; justify-content:flex-end">
-              <button class="btn ghost" id="agToday" type="button">Hoy</button>
-              <button class="btn ghost" id="agTomorrow" type="button">Mañana</button>
-              <button class="btn ghost" id="agWeek" type="button">7 días</button>
-              <button class="btn ghost" id="agMonth" type="button">30 días</button>
-              <button class="btn ghost" id="agAll" type="button">Todo</button>
-            </div>
+            <button class="btn primary" id="btnAgendaNew" type="button"><span data-icon="plus"></span>Nueva entrada</button>
           </div>
 
-          <div id="agendaList" class="agendaList" aria-label="Agenda"></div>
+          <div class="seg agendaRanges" role="group" aria-label="Qué entradas mostrar">
+            <button class="segBtn" id="agToday" data-range="today" type="button" aria-pressed="false">Hoy</button>
+            <button class="segBtn" id="agTomorrow" data-range="tomorrow" type="button" aria-pressed="false">Mañana</button>
+            <button class="segBtn" id="agWeek" data-range="week" type="button" aria-pressed="false">7 días</button>
+            <button class="segBtn" id="agMonth" data-range="month" type="button" aria-pressed="false">30 días</button>
+            <button class="segBtn" id="agAll" data-range="all" type="button" aria-pressed="false">Todo</button>
+          </div>
+
+          <div id="agendaList" class="agendaList" aria-label="Entradas de la agenda"></div>
         </div>
       </section>
       <!-- LISTAS -->
@@ -579,16 +623,31 @@
     </div>
 
     <div class="timerLayout">
-      <div class="timerRing" aria-label="Cuenta atrás">
-        <svg class="timerSvg" viewBox="0 0 120 120" aria-hidden="true">
-          <circle class="timerTrack" cx="60" cy="60" r="46" pathLength="100"></circle>
-          <circle class="timerProg" cx="60" cy="60" r="46" pathLength="100"></circle>
-        </svg>
+      <div class="timerStage">
+        <div class="timerRing" aria-label="Cuenta atrás">
+          <svg class="timerSvg" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="timerTrack" cx="60" cy="60" r="46" pathLength="100"></circle>
+            <circle class="timerProg" cx="60" cy="60" r="46" pathLength="100"></circle>
+          </svg>
 
-        <div class="timerCenter">
-          <div id="timerDigits" class="timerDigits">00:25</div>
-          <div id="pomoPhase" class="timerPhase pomoOnly">Trabajo</div>
-          <div id="pomoCount" class="timerPhaseSub pomoOnly">0 pomodoros</div>
+          <div class="timerCenter">
+            <div id="timerDigits" class="timerDigits" role="timer" aria-live="off">25:00</div>
+            <div id="pomoPhase" class="timerPhase pomoOnly">Trabajo</div>
+            <div id="pomoCount" class="timerPhaseSub pomoOnly">Pomodoro 1 de 4</div>
+          </div>
+        </div>
+
+        <div class="timerActions">
+          <div class="row timerButtons">
+            <button id="timerStart" class="btn primary" type="button">Iniciar</button>
+            <button id="timerPause" class="btn ghost" type="button">Pausar</button>
+            <button id="pomoSkip" class="btn ghost pomoOnly" type="button" title="Termina esta fase y pasa a la siguiente">Siguiente fase</button>
+            <button id="timerReset" class="btn danger" type="button" title="Vuelve a empezar la cuenta atrás actual">Reiniciar</button>
+          </div>
+
+          <div class="timerMeta">
+            <div class="muted" id="timerMeta">Duración: —</div>
+          </div>
         </div>
       </div>
 
@@ -596,11 +655,11 @@
         <div class="row3 timerOnly">
           <div class="field">
             <label class="lbl" for="timerMin">Min</label>
-            <input id="timerMin" type="number" min="0" max="999" step="1" value="0" />
+            <input id="timerMin" type="number" min="0" max="999" step="1" value="25" />
           </div>
           <div class="field">
             <label class="lbl" for="timerSec">Seg</label>
-            <input id="timerSec" type="number" min="0" max="59" step="1" value="25" />
+            <input id="timerSec" type="number" min="0" max="59" step="1" value="0" />
           </div>
           <div class="field">
             <label class="lbl" for="timerVol">Sonido</label>
@@ -615,10 +674,11 @@
 
         <div class="pomoOnly">
           <div class="row spread" style="margin-bottom:10px; align-items:flex-end; flex-wrap:wrap; gap:10px">
-            <div class="row" style="gap:8px; flex-wrap:wrap">
-              <button id="pomoPhaseWork" class="btn ghost sm" type="button">Trabajo</button>
-              <button id="pomoPhaseShort" class="btn ghost sm" type="button">Descanso</button>
-              <button id="pomoPhaseLong" class="btn ghost sm" type="button">Largo</button>
+            <div class="row pomoPhaseRow" style="gap:8px; flex-wrap:wrap" role="group" aria-label="Elegir fase">
+              <button id="pomoPhaseWork" class="btn ghost sm pomoPhaseBtn" data-phase="work" type="button" aria-pressed="true">Trabajo</button>
+              <button id="pomoPhaseShort" class="btn ghost sm pomoPhaseBtn" data-phase="short" type="button" aria-pressed="false">Descanso</button>
+              <button id="pomoPhaseLong" class="btn ghost sm pomoPhaseBtn" data-phase="long" type="button" aria-pressed="false">Largo</button>
+              <button id="pomoCycleReset" class="btn ghost sm" type="button" title="Vuelve a Trabajo y pone el contador a cero">Reiniciar ciclo</button>
             </div>
 
             <div class="row" style="gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end">
@@ -677,18 +737,6 @@
           </div>
         </div>
 
-      </div>
-    </div>
-
-    <div class="timerActions">
-      <div class="row" style="gap:10px; flex-wrap:wrap; justify-content:center">
-        <button id="timerStart" class="btn primary" type="button">Iniciar</button>
-        <button id="timerPause" class="btn ghost" type="button">Pausar</button>
-        <button id="timerReset" class="btn danger" type="button">Reiniciar</button>
-      </div>
-
-      <div class="timerMeta">
-        <div class="muted" id="timerMeta">Duración: —</div>
       </div>
     </div>
   </div>
@@ -819,11 +867,11 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/00-design.js?v=35"></script>
-  <script src="js/01-core.js?v=32"></script>
-  <script src="js/02-ui-auth.js?v=33"></script>
-  <script src="js/03-features.js?v=35"></script>
-  <script src="js/04-views.js?v=35"></script>
-  <script src="js/05-experience.js?v=35"></script>
+  <script src="js/01-core.js?v=33"></script>
+  <script src="js/02-ui-auth.js?v=34"></script>
+  <script src="js/03-features.js?v=36"></script>
+  <script src="js/04-views.js?v=36"></script>
+  <script src="js/05-experience.js?v=36"></script>
 <!-- Install FAB (Mobile) -->
 <!-- Discord forms modal -->
 <div id="discordFormModal" class="modal" aria-hidden="true">

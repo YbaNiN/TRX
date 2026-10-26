@@ -49,11 +49,28 @@ function renderDayOverview() {
   }).join(''):`<div class="dayEmpty">${trxIcon('sun')}<h3>Un día por escribir.</h3><p>Añade tu primera tarea y da un pequeño paso hacia lo que importa.</p></div>`;
   const next=state.tasks.filter(t=>t.startDate>today&&t.status!=='done').sort((a,b)=>a.startDate.localeCompare(b.startDate)).slice(0,3);
   $('#upcomingTasks').innerHTML=next.length?next.map(t=>`<button type="button" class="upcomingItem" data-edit-task="${escapeHtml(t.id)}"><span class="upcomingDate"><strong>${parseISODate(t.startDate).getDate()}</strong><span>${parseISODate(t.startDate).toLocaleDateString('es',{month:'short'})}</span></span><span><strong>${taskColorMarker(t.color)}${escapeHtml(t.title)}</strong><small>${escapeHtml(readableDate(t.startDate))}${t.startTime?' · '+escapeHtml(t.startTime):''}</small></span>${trxIcon('arrow')}</button>`).join(''):'<p class="muted quietEmpty">Lo que planees para los próximos días aparecerá aquí.</p>';
-  const isRunning = state.timer.running;
-  $('#focusDuration').textContent = isRunning ? fmtTimer(Math.max(0,state.timer.endAt-Date.now())) : state.timer.pomodoro.workMin;
-  $('#focusUnit').textContent = isRunning ? 'sesión en curso' : 'minutos para ti';
-  $('#homeFocusLabel').textContent = isRunning ? 'Volver a mi sesión' : 'Preparar sesión';
+  renderHomeFocus();
   $$('.viewSwitch button').forEach(b=>b.setAttribute('aria-pressed',String(state.view===b.dataset.view)));
+}
+
+// Focus card on "Mi día". Called on every timer tick, so it only writes text that changed.
+function renderHomeFocus() {
+  const dur = $('#focusDuration');
+  if (!dur) return;
+  const t = state.timer;
+  const isRunning = t.running;
+  const isPomo = t.mode === 'pomodoro';
+  const paused = !isRunning && t.remainingMs > 0 && t.remainingMs < t.durationMs;
+  const phase = isPomo ? pomoPhaseLabel(t.pomodoro.phase).toLowerCase() : 'temporizador';
+  const values = {
+    focusDuration: isRunning || paused ? fmtTimer(Math.max(0, isRunning ? t.endAt - Date.now() : t.remainingMs)) : String(t.pomodoro.workMin),
+    focusUnit: isRunning ? `${phase} en curso` : paused ? `${phase} en pausa` : 'minutos para ti',
+    homeFocusLabel: isRunning || paused ? 'Volver a mi sesión' : 'Preparar sesión',
+  };
+  for (const [id, text] of Object.entries(values)) {
+    const el = document.getElementById(id);
+    if (el && el.textContent !== text) el.textContent = text;
+  }
 }
 
 function initExperience() {
@@ -122,7 +139,11 @@ function initExperience() {
     const view=e.target.closest('[data-view]'); if(view){$('#viewSelect').value=view.dataset.view; $('#viewSelect').dispatchEvent(new Event('change'));}
   });
   $('#todayTasks').addEventListener('change',e=>{if(e.target.dataset.complete){updateTaskStatus(e.target.dataset.complete,e.target.checked?'done':'todo'); renderDayOverview();}});
-  $('#homeFocus').addEventListener('click',()=>{if(!state.timer.running) setTimerMode('pomodoro'); switchTab('timer');});
+  $('#homeFocus').addEventListener('click',()=>{
+    const t=state.timer; const paused=!t.running&&t.remainingMs>0&&t.remainingMs<t.durationMs;
+    if(!t.running&&!paused) setTimerMode('pomodoro');
+    switchTab('timer');
+  });
   $('#calendarGrid').addEventListener('keydown',e=>{const cell=e.target.closest('[data-date]'); if(cell&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openDayModal(cell.dataset.date);}});
   document.addEventListener('keydown',e=>{
     const editing=e.target.matches('input,textarea,select,[contenteditable="true"]');
