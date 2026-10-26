@@ -359,3 +359,5 @@ body:not(.light) .skipLink{color:#152142}
   .agendaRanges{display:flex;flex-wrap:nowrap;overflow-x:auto;max-width:100%}
   .agendaRanges .segBtn{flex:none}
 }
+.undoToast .toastMsg{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:520px),(pointer:coarse){.noteEditHint{display:none}}

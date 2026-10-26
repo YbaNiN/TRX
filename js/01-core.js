@@ -185,12 +185,15 @@ function offerUndo({ title = "Eliminado", message = "", onUndo }) {
     <button type="button" class="btn ghost sm undoBtn">Deshacer</button>
   `;
   host.appendChild(el);
+  // .toast starts hidden (opacity 0); without .show the undo button was invisible.
+  requestAnimationFrame(() => el.classList.add("show"));
 
   let done = false;
   const finish = () => {
     if (done) return;
     done = true;
     if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = null; }
+    el.classList.remove("show");
     el.classList.add("leaving");
     setTimeout(() => el.remove(), 220);
   };
@@ -201,7 +204,7 @@ function offerUndo({ title = "Eliminado", message = "", onUndo }) {
     toast({ title: "Restaurado", type: "ok", timeout: 1600 });
   });
 
-  _undoTimer = setTimeout(finish, 6000);
+  _undoTimer = setTimeout(finish, 8000);
 }
 
 /* ===================== Date helpers ===================== */
