@@ -2046,7 +2046,7 @@ function initClock() {
 async function resetAll() {
   const ok = await openModal({
     title: "Reiniciar",
-    desc: "Se borrarán tareas, notas, agenda y estadísticas guardadas localmente.",
+    desc: "Se borrarán tareas, notas, agenda, horario y estadísticas guardadas localmente.",
     okText: "Reiniciar",
     cancelText: "Cancelar"
   });
@@ -2055,6 +2055,7 @@ async function resetAll() {
   localStorage.removeItem(LS.tasks);
   localStorage.removeItem(LS.notes);
   localStorage.removeItem(LS.agenda);
+  localStorage.removeItem(LS.schedule);
   localStorage.removeItem(LS.activity);
   localStorage.removeItem(LS.notifs);
   localStorage.removeItem(LS.timer);
@@ -2062,6 +2063,7 @@ async function resetAll() {
   state.tasks = [];
   state.notes = [];
   state.agenda = [];
+  state.schedule = normalizeSchedule(null);
   state.activityDays = [];
   state.notifs = [];
   state.tagFilter = null;

@@ -1,6 +1,6 @@
 /* Presentation and navigation only; existing data and Supabase flows stay in their modules. */
 let selectedDay = toISODate(new Date());
-const PAGE_NAMES = {overview:'Mi día',tasks:'Mis tareas',calendar:'Calendario',agenda:'Agenda',lists:'Mis listas',notes:'Notas',timer:'Concentración',stats:'Mi progreso',app:'Instalar TRX'};
+const PAGE_NAMES = {overview:'Mi día',tasks:'Mis tareas',calendar:'Calendario',agenda:'Agenda',schedule:'Horario',lists:'Mis listas',notes:'Notas',timer:'Concentración',stats:'Mi progreso',app:'Instalar TRX'};
 
 function updatePageChrome(id) {
   if ($('#pageCrumb')) $('#pageCrumb').textContent = PAGE_NAMES[id] || 'Mi espacio';

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TRX Panel</title>
   <link rel="stylesheet" href="style.css?v=32" />
-  <link rel="stylesheet" href="design.css?v=37" />
+  <link rel="stylesheet" href="design.css?v=39" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2b6cff" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -185,6 +185,40 @@
     </div>
   </div>
 
+  <!-- Schedule time slot modal (create + edit) -->
+  <div id="schedSlotModal" class="modal" aria-hidden="true">
+    <div class="modalBackdrop" data-close-sched="1"></div>
+    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="schedSlotTitle">
+      <div class="modalHead">
+        <div>
+          <div id="schedSlotTitle" class="modalTitle">Nueva franja</div>
+          <div class="modalDesc">Solo cambia esta semana. Las semanas nuevas empezarán con estas horas.</div>
+        </div>
+        <button class="iconBtn" id="schedSlotX" type="button" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="schedSlotForm" class="formGrid">
+        <div class="row2">
+          <div class="field">
+            <label class="lbl" for="schedSlotStart">Empieza</label>
+            <input id="schedSlotStart" type="time" required />
+          </div>
+          <div class="field">
+            <label class="lbl" for="schedSlotEnd">Termina</label>
+            <input id="schedSlotEnd" type="time" required />
+          </div>
+        </div>
+        <p id="schedSlotError" class="schedSlotError" role="alert" hidden></p>
+
+        <div class="modalActions">
+          <button id="schedSlotDelete" class="btn danger" type="button" hidden>Eliminar franja</button>
+          <button id="schedSlotCancel" class="btn ghost" type="button">Cancelar</button>
+          <button class="btn primary" type="submit" id="schedSlotSave">Añadir</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Command Palette -->
   <div id="cmdk" class="modal" aria-hidden="true">
     <div class="modalBackdrop" data-close-cmdk="1"></div>
@@ -260,7 +294,7 @@
         <button class="btn primary sidebarCreate" data-create-task type="button"><span data-icon="plus"></span>Nueva tarea <kbd>N</kbd></button>
         <nav class="sbNav" role="tablist" aria-label="Navegación">
           <span class="navGroup">Tu espacio</span>
-          <button class="tab active" data-tab="overview" role="tab" aria-controls="overview" aria-selected="true"><span class="ic" data-icon="sun"></span><span>Mi día</span></button><button class="tab" data-tab="tasks" role="tab" aria-controls="tasks" aria-selected="false"><span class="ic" data-icon="check"></span><span>Mis tareas</span><span class="navCount" data-stat="pending">0</span></button><button class="tab" data-tab="calendar" role="tab" aria-controls="calendar" aria-selected="false"><span class="ic" data-icon="calendar"></span><span>Calendario</span></button><button class="tab" data-tab="agenda" role="tab" aria-controls="agenda" aria-selected="false"><span class="ic" data-icon="rows"></span><span>Agenda</span></button>
+          <button class="tab active" data-tab="overview" role="tab" aria-controls="overview" aria-selected="true"><span class="ic" data-icon="sun"></span><span>Mi día</span></button><button class="tab" data-tab="tasks" role="tab" aria-controls="tasks" aria-selected="false"><span class="ic" data-icon="check"></span><span>Mis tareas</span><span class="navCount" data-stat="pending">0</span></button><button class="tab" data-tab="calendar" role="tab" aria-controls="calendar" aria-selected="false"><span class="ic" data-icon="calendar"></span><span>Calendario</span></button><button class="tab" data-tab="agenda" role="tab" aria-controls="agenda" aria-selected="false"><span class="ic" data-icon="rows"></span><span>Agenda</span></button><button class="tab" data-tab="schedule" role="tab" aria-controls="schedule" aria-selected="false"><span class="ic" data-icon="table"></span><span>Horario</span></button>
           <span class="navGroup">Organiza y avanza</span>
           <button class="tab" data-tab="lists" role="tab" aria-controls="lists" aria-selected="false"><span class="ic" data-icon="folder"></span><span>Mis listas</span></button><button class="tab" data-tab="notes" role="tab" aria-controls="notes" aria-selected="false"><span class="ic" data-icon="note"></span><span>Notas</span></button><button class="tab" data-tab="timer" role="tab" aria-controls="timer" aria-selected="false"><span class="ic" data-icon="timer"></span><span>Concentración</span></button><button class="tab" data-tab="stats" role="tab" aria-controls="stats" aria-selected="false"><span class="ic" data-icon="chart"></span><span>Mi progreso</span></button>
           <span class="navGroup">Siempre contigo</span><button class="tab" data-tab="app" role="tab" aria-controls="app" aria-selected="false"><span class="ic" data-icon="phone"></span><span>Instalar TRX</span></button>
@@ -500,6 +534,43 @@
           </div>
 
           <div id="agendaList" class="agendaList" aria-label="Entradas de la agenda"></div>
+        </div>
+      </section>
+
+      <!-- HORARIO -->
+      <section class="panel" id="schedule" role="tabpanel">
+        <div class="card">
+          <div class="row spread" style="gap:12px; align-items:flex-end; flex-wrap:wrap">
+            <div>
+              <div class="h2">Horario</div>
+              <div class="muted">Organiza tu semana de lunes a viernes. Cada semana se guarda por separado y, al empezar un año nuevo, se borran los horarios del año anterior.</div>
+            </div>
+            <button class="btn primary" id="btnSchedSlot" type="button"><span data-icon="plus"></span>Añadir franja</button>
+          </div>
+
+          <div class="schedBar">
+            <div class="schedWeekNav">
+              <button class="btn ghost schedNavBtn" id="schedPrev" type="button" aria-label="Semana anterior">◀</button>
+              <div class="schedWeekLabel" id="schedWeekLabel" aria-live="polite"></div>
+              <button class="btn ghost schedNavBtn" id="schedNext" type="button" aria-label="Semana siguiente">▶</button>
+              <button class="btn ghost sm" id="schedToday" type="button" hidden>Volver a esta semana</button>
+            </div>
+            <div class="schedTools">
+              <button class="btn ghost sm" id="schedCopyPrev" type="button">Copiar semana anterior</button>
+              <button class="btn ghost sm" id="schedClear" type="button">Vaciar semana</button>
+            </div>
+          </div>
+
+          <div class="seg schedDays" role="group" aria-label="Día que se muestra">
+            <button class="segBtn" data-sched-day="0" type="button">L</button>
+            <button class="segBtn" data-sched-day="1" type="button">M</button>
+            <button class="segBtn" data-sched-day="2" type="button">X</button>
+            <button class="segBtn" data-sched-day="3" type="button">J</button>
+            <button class="segBtn" data-sched-day="4" type="button">V</button>
+          </div>
+
+          <div class="schedScroll"><div id="schedTable" aria-label="Horario de la semana"></div></div>
+          <div class="schedFoot muted" id="schedFoot"></div>
         </div>
       </section>
       <!-- LISTAS -->
@@ -866,12 +937,13 @@
 </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/00-design.js?v=35"></script>
-  <script src="js/01-core.js?v=34"></script>
-  <script src="js/02-ui-auth.js?v=34"></script>
-  <script src="js/03-features.js?v=36"></script>
-  <script src="js/04-views.js?v=36"></script>
-  <script src="js/05-experience.js?v=36"></script>
+  <script src="js/00-design.js?v=36"></script>
+  <script src="js/01-core.js?v=35"></script>
+  <script src="js/02-ui-auth.js?v=35"></script>
+  <script src="js/03-features.js?v=37"></script>
+  <script src="js/04-views.js?v=37"></script>
+  <script src="js/05-experience.js?v=37"></script>
+  <script src="js/06-schedule.js?v=4"></script>
 <!-- Install FAB (Mobile) -->
 <!-- Discord forms modal -->
 <div id="discordFormModal" class="modal" aria-hidden="true">

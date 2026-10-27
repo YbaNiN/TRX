@@ -361,3 +361,57 @@ body:not(.light) .skipLink{color:#152142}
 }
 .undoToast .toastMsg{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:520px),(pointer:coarse){.noteEditHint{display:none}}
+/* Horario: weekly Monday to Friday timetable */
+.schedBar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-top:20px}
+.schedWeekNav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.schedNavBtn{width:34px;min-height:34px;padding:0;font-size:11px}
+.schedNavBtn:disabled{opacity:.35;cursor:not-allowed}
+.schedWeekLabel{display:flex;flex-direction:column;line-height:1.25;min-width:150px;text-align:center}
+.schedWeekLabel strong{font-size:13px;font-weight:600}
+.schedWeekLabel span{font-size:12px;color:var(--muted)}
+.schedTools{display:flex;gap:6px;flex-wrap:wrap}
+.schedTools .btn:disabled{opacity:.45;cursor:not-allowed}
+.schedDays{display:none}
+.schedScroll{margin-top:16px;border:1px solid var(--stroke);border-radius:12px;overflow:hidden;background:var(--surface)}
+.schedScroll:has(.agendaEmpty){border:0;background:none}
+.schedTable{width:100%;border-collapse:collapse;table-layout:fixed}
+.schedTable th,.schedTable td{border-bottom:1px solid var(--stroke);border-right:1px solid var(--stroke);padding:0;vertical-align:top}
+.schedTable tr>:last-child{border-right:0}
+.schedTable tbody tr:last-child>*{border-bottom:0}
+.schedTable thead th{background:var(--surface-alt);padding:10px 12px;text-align:left;font-weight:600}
+.schedTimeHead{width:96px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;vertical-align:middle!important}
+.schedDayName{display:block;font-size:13px}
+.schedDayDate{display:block;font-size:11px;font-weight:500;color:var(--muted)}
+.schedTable thead th.isToday{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
+.schedTable thead th.isToday .schedDayDate{color:var(--accent)}
+.schedTable td.isToday{background:color-mix(in srgb,var(--accent-soft) 45%,transparent)}
+.schedTime{background:var(--surface-alt)}
+.schedTimeBtn{all:unset;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:1px;width:100%;height:100%;min-height:64px;padding:8px 12px;cursor:pointer;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.schedTimeBtn span+span{color:var(--muted);font-weight:500}
+.schedTimeBtn:hover{color:var(--accent)}
+.schedTimeBtn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.schedCell{display:block;width:100%;min-height:64px;resize:none;border:0;border-radius:0;background:transparent;padding:9px 11px;font-size:13px;line-height:1.4;color:var(--text);field-sizing:content;overflow-wrap:anywhere}
+.schedCell:hover{background:color-mix(in srgb,var(--accent-soft) 35%,transparent)}
+.schedCell:focus{outline:2px solid var(--accent);outline-offset:-2px;background:var(--surface);box-shadow:none}
+.schedTable td.filled{background:color-mix(in srgb,var(--accent-soft) 70%,transparent)}
+.schedTable td.filled .schedCell{font-weight:550}
+body.isGuest .schedCell{cursor:default}
+.schedTable td{cursor:text}
+.schedFoot{font-size:12px;margin-top:10px}
+.schedSlotError{margin:0;font-size:12px;color:var(--danger)}
+@media(max-width:720px){
+  .schedBar{flex-direction:column;align-items:stretch}
+  .schedWeekNav{justify-content:space-between}
+  .schedWeekNav .schedWeekLabel{flex:1}
+  .schedWeekNav #schedToday{flex-basis:100%}
+  .schedTools .btn{flex:1}
+  .schedDays{display:flex;margin-top:14px}
+  .schedDays .segBtn{flex:1;display:flex;flex-direction:column;align-items:center;line-height:1.15;min-height:44px;padding:5px 0}
+  .schedDays .segBtn small{font-size:10px;font-weight:500;color:var(--muted)}
+  .schedDays .segBtn.isToday:not(.active){color:var(--accent)}
+  .schedTimeHead{width:76px}
+  .schedTimeBtn{padding:8px 10px;min-height:58px}
+  .schedTable [data-col]{display:none}
+  .schedTable[data-show="0"] [data-col="0"],.schedTable[data-show="1"] [data-col="1"],.schedTable[data-show="2"] [data-col="2"],.schedTable[data-show="3"] [data-col="3"],.schedTable[data-show="4"] [data-col="4"]{display:table-cell}
+  .schedCell{font-size:15px;min-height:58px}
+}

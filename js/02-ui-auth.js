@@ -330,6 +330,7 @@ function renderCmdk(q) {
     { name: "Ir a Calendario", desc: "Abrir calendario", key: "G", run: () => switchTab("calendar") },
     { name: "Ir a Agenda", desc: "Citas y recordatorios", key: "G", run: () => switchTab("agenda") },
     { name: "Nueva entrada de agenda", desc: "Apuntar una cita o recordatorio", key: "A", run: () => { switchTab("agenda"); openAgendaModal(); } },
+    { name: "Ir a Horario", desc: "Tu semana de lunes a viernes", key: "H", run: () => switchTab("schedule") },
     { name: "Ir a Listas", desc: "Abrir listas", key: "G", run: () => switchTab("lists") },
     { name: "Ir a Temporizador", desc: "Abrir temporizador", key: "G", run: () => switchTab("timer") },
     { name: "Ir a Mi progreso", desc: "Abrir estadísticas", key: "G", run: () => switchTab("stats") },
@@ -544,7 +545,7 @@ function demoSeedData() {
     { title: "Renovar el abono de transporte", date: iso(3), time: "" },
   ].map((a) => normalizeAgendaItem({ id: uid(), createdAt: Date.now(), ...a }));
 
-  return { tasks, notes, agenda };
+  return { tasks, notes, agenda, schedule: demoScheduleData() };
 }
 
 // Entra en modo invitado: datos demo en memoria, todo de solo lectura.
@@ -555,6 +556,8 @@ function enterGuestMode() {
   state.tasks = seed.tasks;
   state.notes = seed.notes;
   state.agenda = seed.agenda;
+  state.schedule = seed.schedule;
+  state.schedOffset = 0;
   state.lists = [];
   state.listItems = {};
   state.session = { u: "Invitado", role: "guest", email: "", ts: Date.now() };
@@ -576,6 +579,7 @@ function exitGuestMode() {
   state.tasks = [];
   state.notes = [];
   state.agenda = [];
+  state.schedule = normalizeSchedule(null);
   document.body.classList.remove("isGuest");
   hideGuestBanner();
   showGate(true);
@@ -784,6 +788,11 @@ function switchTab(id) {
   if (id === "agenda") {
     setTimeout(() => {
       renderAgenda();
+    }, 10);
+  }
+  if (id === "schedule") {
+    setTimeout(() => {
+      renderSchedule({ force: true });
     }, 10);
   }
   if (id === "lists") {

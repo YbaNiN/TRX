@@ -10,6 +10,7 @@ function renderAll(redraw = true) {
   renderKanban();
   renderCalendar();
   renderAgenda();
+  if (typeof renderSchedule === "function") renderSchedule();
   renderNotifs();
   if (redraw) redrawChartsIfVisible();
 }

@@ -6,6 +6,7 @@ const LS = {
   notes: "trx_notes_v5",
   lists: "trx_lists_v1",
   agenda: "trx_agenda_v1",
+  schedule: "trx_schedule_v1",
   listItems: "trx_list_items_v1",
   theme: "trx_theme_v5",
   density: "trx_density_v1",
@@ -276,6 +277,12 @@ function load() {
   }
 
   try {
+    state.schedule = normalizeSchedule(JSON.parse(localStorage.getItem(LS.schedule) || "null"));
+  } catch {
+    state.schedule = normalizeSchedule(null);
+  }
+
+  try {
     state.lists = JSON.parse(localStorage.getItem(LS.lists) || "[]");
   } catch {
     state.lists = [];
@@ -384,6 +391,7 @@ function save({ sync = true } = {}) {
   localStorage.setItem(LS.tasks, JSON.stringify(state.tasks));
   localStorage.setItem(LS.notes, JSON.stringify(state.notes));
   localStorage.setItem(LS.agenda, JSON.stringify(state.agenda || []));
+  if (state.schedule) localStorage.setItem(LS.schedule, JSON.stringify(state.schedule));
   localStorage.setItem(LS.lists, JSON.stringify(state.lists));
   localStorage.setItem(LS.listItems, JSON.stringify(state.listItems || {}));
   localStorage.setItem(LS.favColors, JSON.stringify(state.favColors || []));
@@ -509,6 +517,9 @@ async function cloudBootstrap() {
         if (r.deleted || r.data?.deleted || pendingTaskDeletes.has(id)) {
           tMap.delete(id);
           aMap.delete(id);
+          scheduleRemoveById(id);
+        } else if (r.data?.kind === "schedule" || r.data?.kind === "scheduleTemplate") {
+          scheduleMergeCloudRow(r.data);
         } else if (r.data?.kind === "agenda") {
           aMap.set(id, normalizeAgendaItem(r.data));
         } else if (r.data) {
@@ -584,9 +595,10 @@ async function cloudSyncAll() {
   // Mantén cloudUserId por UI, pero para RLS usa authUid SIEMPRE
   cloudUserId = authUid;
 
-  // Upsert tasks and agenda entries (agenda entries share the tasks table, marked with kind: "agenda")
+  // Upsert tasks, agenda entries and schedule weeks. All share the tasks table;
+  // agenda and schedule rows are told apart by data.kind.
   const pendingTaskDeletes = new Set(cloudGetDeleted(CLOUD.delTasksKey));
-  const taskRows = [...(state.tasks || []), ...(state.agenda || [])].filter((t) => !pendingTaskDeletes.has(t.id)).map((t) => ({
+  const taskRows = [...(state.tasks || []), ...(state.agenda || []), ...scheduleCloudRows()].filter((t) => !pendingTaskDeletes.has(t.id)).map((t) => ({
     user_id: authUid,
     task_id: t.id,
     data: t,
