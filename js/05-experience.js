@@ -1,6 +1,6 @@
 /* Presentation and navigation only; existing data and Supabase flows stay in their modules. */
 let selectedDay = toISODate(new Date());
-const PAGE_NAMES = {overview:'Mi día',tasks:'Mis tareas',calendar:'Calendario',agenda:'Agenda',schedule:'Horario',lists:'Mis listas',notes:'Notas',timer:'Concentración',stats:'Mi progreso',app:'Instalar TRX'};
+const PAGE_NAMES = {overview:'Mi día',tasks:'Mis tareas',calendar:'Calendario',agenda:'Agenda',schedule:'Horario',lists:'Mis listas',notes:'Notas',timer:'Pomodoro',stats:'Mi progreso',app:'Instalar TRX'};
 
 function updatePageChrome(id) {
   if ($('#pageCrumb')) $('#pageCrumb').textContent = PAGE_NAMES[id] || 'Mi espacio';
@@ -56,16 +56,15 @@ function renderDayOverview() {
 // Focus card on "Mi día". Called on every timer tick, so it only writes text that changed.
 function renderHomeFocus() {
   const dur = $('#focusDuration');
-  if (!dur) return;
-  const t = state.timer;
-  const isRunning = t.running;
-  const isPomo = t.mode === 'pomodoro';
-  const paused = !isRunning && t.remainingMs > 0 && t.remainingMs < t.durationMs;
-  const phase = isPomo ? pomoPhaseLabel(t.pomodoro.phase).toLowerCase() : 'temporizador';
+  if (!dur || !state.pomo) return;
+  const p = state.pomo;
+  const left = pomoSecondsLeft();
+  const paused = !p.running && left < pomoStageSec();
+  const phase = POMO_STAGES[p.stage].name.toLowerCase();
   const values = {
-    focusDuration: isRunning || paused ? fmtTimer(Math.max(0, isRunning ? t.endAt - Date.now() : t.remainingMs)) : String(t.pomodoro.workMin),
-    focusUnit: isRunning ? `${phase} en curso` : paused ? `${phase} en pausa` : 'minutos para ti',
-    homeFocusLabel: isRunning || paused ? 'Volver a mi sesión' : 'Preparar sesión',
+    focusDuration: p.running || paused ? pomoFmt(left) : String(p.settings.minutes[0]),
+    focusUnit: p.running ? `${phase} en curso` : paused ? `${phase} en pausa` : 'minutos para ti',
+    homeFocusLabel: p.running || paused ? 'Volver a mi sesión' : 'Preparar sesión',
   };
   for (const [id, text] of Object.entries(values)) {
     const el = document.getElementById(id);
@@ -140,8 +139,6 @@ function initExperience() {
   });
   $('#todayTasks').addEventListener('change',e=>{if(e.target.dataset.complete){updateTaskStatus(e.target.dataset.complete,e.target.checked?'done':'todo'); renderDayOverview();}});
   $('#homeFocus').addEventListener('click',()=>{
-    const t=state.timer; const paused=!t.running&&t.remainingMs>0&&t.remainingMs<t.durationMs;
-    if(!t.running&&!paused) setTimerMode('pomodoro');
     switchTab('timer');
   });
   $('#calendarGrid').addEventListener('keydown',e=>{const cell=e.target.closest('[data-date]'); if(cell&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openDayModal(cell.dataset.date);}});

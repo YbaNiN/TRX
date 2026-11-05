@@ -238,10 +238,8 @@ body:not(.light) .badge.high{background:#3c2930;color:#f3a49c}body:not(.light) .
 .listsLayout{grid-template-columns:240px minmax(0,1fr);gap:28px;margin-top:28px}.listsSide,.listsMain{border:0;border-radius:0;background:none;padding:0;min-width:0}.listsSide{border-right:1px solid var(--stroke);padding-right:24px}.listCard,.listRow,.listBtn{box-shadow:none;background:var(--surface);border:1px solid var(--stroke);border-radius:9px}.listCard.active,.listRow.active,.listBtn.active{background:var(--accent-soft);border-color:var(--accent)}
 .playlistCover{background:var(--accent-soft);color:var(--accent);border:0;border-radius:12px;box-shadow:none}.playlistCols{color:var(--muted);font-size:11px;font-weight:500;background:none;border:0}.listItem{background:var(--surface);border:0;border-bottom:1px solid var(--stroke);border-radius:0;padding:14px;box-shadow:none}.listItemText{font-weight:500;font-size:13px}.listItemDate{color:var(--muted)}
 .subCard{background:var(--surface-alt);border:0;margin-top:20px}
-.timerLayout{grid-template-columns:minmax(300px,.9fr) minmax(0,1.1fr);gap:32px;margin-top:28px;align-items:center}
-.timerRing{min-height:355px;background:var(--surface);border:1px solid var(--stroke);border-radius:14px;box-shadow:none}.timerSvg{width:min(320px,82%);filter:none}.timerTrack{stroke:var(--surface-alt);stroke-width:2;stroke-dasharray:none}.timerProg{stroke:var(--accent);stroke-width:3;stroke-dasharray:100;stroke-linecap:round}.timerDigits{font-size:62px;font-weight:350;color:var(--text);letter-spacing:-.04em;text-shadow:none}.timerPhase{color:var(--accent);font-size:11px;font-weight:500;letter-spacing:.03em}.timerPhaseSub{color:var(--muted)}
-.timerControls{padding:0;background:none;border:0;border-radius:0;min-width:0}.timerControls .row4{grid-template-columns:repeat(2,minmax(0,1fr))}.timerControls .row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.timerActions{margin-top:26px}.timerMeta{text-align:center;border:0;font-size:12px}.seg{background:var(--surface-alt);border:0;border-radius:8px;padding:3px;gap:3px}.segBtn{border:0;border-radius:6px;font-size:12px;font-weight:550;padding:8px 14px;color:var(--muted)}.segBtn.active{background:var(--surface);color:var(--accent);box-shadow:0 1px 3px rgba(20,30,50,.06)}
-.pomoPresetItem{border:1px solid var(--stroke);border-radius:8px;background:var(--surface);padding:12px}.pomoPresetItem .name{min-width:0}.checkRow{font-size:11px;font-weight:500;color:var(--muted)}
+.seg{background:var(--surface-alt);border:0;border-radius:8px;padding:3px;gap:3px}.segBtn{border:0;border-radius:6px;font-size:12px;font-weight:550;padding:8px 14px;color:var(--muted)}.segBtn.active{background:var(--surface);color:var(--accent);box-shadow:0 1px 3px rgba(20,30,50,.06)}
+.checkRow{font-size:11px;font-weight:500;color:var(--muted)}
 .notesBoard{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:23px}.notesBar{gap:10px}.notesMeta{margin-top:12px;font-size:11px}.notesBar input{min-width:0}.notesBoard .note:nth-child(3n+2){background:var(--accent-soft);color:var(--text)}.notesBoard .note:nth-child(3n+2) .noteMeta2 .muted,.notesBoard .note:nth-child(3n+2) .noteBtn{color:var(--muted)}
 .statsGrid{gap:22px}.card.mini{background:var(--surface);border:1px solid var(--stroke);padding:22px;border-radius:12px}.miniHead{font-size:12px;font-weight:500;margin-bottom:22px}.card.mini .muted{font-weight:500}.statsGrid+.card.mini{margin-top:22px}
 .installCardInline{background:var(--surface);border:1px solid var(--stroke);border-radius:14px;padding:28px;box-shadow:none}.installTitle{font-size:22px;font-weight:600}.installSub{color:var(--muted);font-size:12px}.installIcon{width:62px;height:62px;border-radius:14px}
@@ -315,19 +313,6 @@ body:not(.light) .skipLink{color:#152142}
 .quickNotes .noteEditHint{display:none}
 
 /* Timer: controls sit right under the ring so they are reachable without scrolling. */
-.timerStage{min-width:0;display:flex;flex-direction:column}
-.timerStage .timerActions{margin-top:16px}
-.timerButtons{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
-.timerButtons .btn{min-width:0;width:100%}
-#timer[data-mode="pomodoro"] .timerButtons{grid-template-columns:repeat(2,minmax(0,1fr))}
-@media(min-width:1181px){#timer[data-mode="pomodoro"] .timerButtons{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.timerStage .timerMeta{margin-top:12px;padding-top:0;border:0}
-.timerRing.isIdle .timerProg{opacity:0}
-.timerRing[data-phase="short"] .timerProg,.timerRing[data-phase="long"] .timerProg{stroke:var(--success)}
-.timerRing[data-phase="short"] .timerPhase,.timerRing[data-phase="long"] .timerPhase{color:var(--success)}
-.pomoPhaseBtn.active{background:var(--accent-soft);color:var(--accent);border-color:transparent}
-#pomoCycleReset{color:var(--muted)}
-@media(max-width:520px){.timerButtons{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 
 /* Agenda: own entries, grouped by day. */
 .agendaRanges{display:inline-flex;flex-wrap:wrap;margin-top:18px}
@@ -415,3 +400,135 @@ body.isGuest .schedCell{cursor:default}
   .schedTable[data-show="0"] [data-col="0"],.schedTable[data-show="1"] [data-col="1"],.schedTable[data-show="2"] [data-col="2"],.schedTable[data-show="3"] [data-col="3"],.schedTable[data-show="4"] [data-col="4"]{display:table-cell}
   .schedCell{font-size:15px;min-height:58px}
 }
+/* Pomodoro: same look and behaviour as pomofocus.io */
+#timer.panel{padding-top:0}
+.pomoApp{--pomo:rgb(175 73 73);background:var(--pomo);color:#fff;border-radius:16px;padding:6px 20px 44px;transition:background-color .7s ease;font-family:"Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif}
+.pomoApp.isDark{background:#141414;color:#8f8f8f}
+.pomoHeader{max-width:620px;margin:0 auto;height:60px;display:flex;align-items:center;justify-content:space-between}
+.pomoBrand{display:flex;align-items:center;gap:6px;font-size:20px;font-weight:700}
+.pomoBrand .uiIcon{width:22px;height:22px;stroke-width:2.2}
+.pomoTopBtn{display:inline-flex;align-items:center;gap:5px;border:0;border-radius:4px;background:rgba(255,255,255,.2);color:#fff;font:inherit;font-size:13px;font-weight:600;padding:7px 12px;cursor:pointer;opacity:.9}
+.pomoTopBtn:hover{opacity:1}
+.pomoTopBtn .uiIcon{width:15px;height:15px}
+.pomoProgress{max-width:620px;margin:0 auto 40px;height:1px;background:rgba(0,0,0,.1)}
+.pomoProgressBar{height:3px;width:0;background:#fff;border-radius:100px;transform:translateY(-1px)}
+.pomoApp.isDark .pomoProgressBar{background:#8f8f8f}
+.pomoMain{max-width:480px;margin:0 auto;text-align:center}
+.pomoCard{background:rgba(255,255,255,.1);border-radius:6px;padding:20px 0 30px;margin-bottom:20px}
+.pomoApp.isDark .pomoCard{background:transparent}
+.pomoTabs{display:inline-flex;justify-content:center;align-items:center;gap:2px}
+.pomoApp.isDark .pomoTabs{visibility:hidden}
+.pomoTab{border:0;background:none;color:#fff;font:inherit;font-size:16px;font-weight:300;height:28px;padding:2px 12px;border-radius:4px;cursor:pointer;opacity:.9}
+.pomoTab.selected{background:rgba(0,0,0,.15);font-weight:700;opacity:1}
+.pomoTab:focus-visible,.pomoStart:focus-visible,.pomoNext:focus-visible,.pomoCount:focus-visible,.pomoTopBtn:focus-visible,.pomoIconBtn:focus-visible,.pomoAddTask:focus-visible,.pomoTask:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.pomoShort{display:none}
+.pomoTime{font-size:120px;font-weight:700;line-height:1.15;margin-top:20px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.pomoControls{position:relative;display:flex;justify-content:center;align-items:center;margin-top:20px}
+.pomoStart{width:200px;height:55px;border:0;border-radius:4px;background:#fff;color:var(--pomo);font:inherit;font-size:22px;font-weight:700;letter-spacing:.02em;cursor:pointer;box-shadow:rgb(235 235 235) 0 6px 0;transition:color .5s ease}
+.pomoStart.ticking{transform:translateY(6px);box-shadow:none}
+.pomoApp.isDark .pomoStart{background:#2a2a2a;color:#8f8f8f;box-shadow:none}
+.pomoNext{position:absolute;left:calc(50% + 116px);top:50%;transform:translateY(-50%);border:0;background:none;color:#fff;padding:8px;cursor:pointer;opacity:.9;visibility:hidden;pointer-events:none}
+.pomoNext.visible{visibility:visible;pointer-events:auto}
+.pomoNext .uiIcon{width:30px;height:30px}
+.pomoApp.isDark .pomoNext{color:#8f8f8f}
+.pomoCount{border:0;background:none;color:inherit;font:inherit;font-size:16px;opacity:.6;cursor:pointer;margin-bottom:4px;padding:2px 6px}
+.pomoCount:hover{opacity:.9}
+.pomoMsg{font-size:18px;font-weight:400;overflow-wrap:anywhere}
+.pomoTasksHead{display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding-bottom:14px;margin-bottom:20px;border-bottom:2px solid rgba(255,255,255,.6);font-size:18px;font-weight:700;text-align:left}
+.pomoMenuWrap{position:relative}
+.pomoIconBtn{width:30px;height:30px;display:grid;place-items:center;border:0;border-radius:4px;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;opacity:.9}
+.pomoIconBtn .uiIcon{width:18px;height:18px}
+.pomoMenu{position:absolute;right:0;top:36px;z-index:20;width:250px;background:#fff;border-radius:4px;box-shadow:0 10px 20px rgba(0,0,0,.15),0 3px 6px rgba(0,0,0,.1);padding:4px 0;text-align:left}
+.pomoMenu button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:#4f2b2d;font:inherit;font-size:14px;font-weight:500;padding:11px 16px;cursor:pointer}
+.pomoMenu button:hover,.pomoMenu button:focus-visible{background:#f0f0f0;outline:none}
+.pomoMenu .uiIcon{width:16px;height:16px;opacity:.75}
+.pomoTaskList{display:flex;flex-direction:column;gap:8px;text-align:left}
+.pomoTask{background:#fff;color:#555;border-radius:4px;border-left:6px solid transparent;box-shadow:rgba(0,0,0,.1) 0 2px 2px;padding:16px 14px 16px 12px;cursor:pointer;transition:border-color .15s}
+.pomoTask:hover{border-left-color:#dfdfdf}
+.pomoTask.active{border-left-color:#222}
+.pomoTaskRow{display:flex;align-items:center;gap:10px}
+.pomoCheck{flex:none;width:26px;height:26px;padding:0;border:0;background:none;color:#dfdfdf;cursor:pointer;display:grid;place-items:center}
+.pomoCheck .uiIcon{width:26px;height:26px;stroke-width:2.4}
+.pomoCheck:hover{color:#c4c4c4}
+.pomoTask.done .pomoCheck{color:var(--pomo)}
+.pomoTaskTitle{flex:1;min-width:0;font-weight:700;font-size:15px;overflow-wrap:anywhere}
+.pomoTask.done .pomoTaskTitle{text-decoration:line-through;opacity:.55}
+.pomoTaskCount{flex:none;color:#aaa;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.pomoTaskCount b{font-size:17px}
+.pomoTaskEdit{flex:none;width:30px;height:30px;display:grid;place-items:center;border:1px solid #dfdfdf;border-radius:4px;background:#fff;color:#999;cursor:pointer}
+.pomoTaskEdit .uiIcon{width:16px;height:16px}
+.pomoTaskEdit:hover{color:#555}
+.pomoTaskNote{margin:10px 0 0 36px;padding:10px 12px;border-radius:8px;background:#fcf8de;color:#605c52;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:rgba(0,0,0,.08) 0 1px 0}
+.pomoAllDone{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 12px;border-radius:8px;background:rgba(0,0,0,.1);text-align:center;font-weight:600}
+.pomoGhostBtn{border:1px solid rgba(255,255,255,.7);border-radius:4px;background:none;color:#fff;font:inherit;font-size:14px;font-weight:700;padding:6px 14px;cursor:pointer}
+.pomoAddTask{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:64px;margin-top:12px;border:2px dashed rgba(255,255,255,.4);border-radius:8px;background:rgba(0,0,0,.1);color:#fff;font:inherit;font-size:16px;font-weight:700;opacity:.8;cursor:pointer}
+.pomoAddTask:hover{opacity:1}
+.pomoAddTask .uiIcon{width:20px;height:20px;stroke-width:2.2}
+.pomoForm{background:#fff;color:#555;border-radius:8px;box-shadow:rgba(0,0,0,.15) 0 10px 20px,rgba(0,0,0,.1) 0 3px 6px;overflow:hidden;text-align:left;cursor:default}
+.pomoFormBody{padding:26px 20px 16px}
+.pomoApp .pomoForm input.pomoFormTitle{width:100%;border:0;background:none;color:#555;font:inherit;font-size:22px;font-weight:700;padding:6px 0;box-shadow:none}
+.pomoFormTitle::placeholder{color:#c8c8c8;font-style:italic}
+.pomoApp .pomoForm input.pomoFormTitle:focus{outline:none;box-shadow:none}
+.pomoFormLabel{margin:18px 0 8px;font-weight:700;font-size:15px}
+.pomoFormNums{display:flex;align-items:center;gap:8px}
+.pomoApp .pomoForm input.pomoNum{appearance:textfield;-moz-appearance:textfield;width:76px;border:0;border-radius:6px;background:#efefef;color:#555;font:inherit;font-size:16px;font-weight:700;padding:10px;box-shadow:none;min-height:0}
+.pomoApp .pomoForm input.pomoNum::-webkit-inner-spin-button,.pomoApp .pomoForm input.pomoNum::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.pomoFormSlash{font-weight:700;color:#aaa}
+.pomoStep{width:40px;height:38px;border:1px solid #dfdfdf;border-radius:4px;background:#fff;color:#555;cursor:pointer;box-shadow:rgba(0,0,0,.2) 0 2px 2px;font-size:11px}
+.pomoStep:active{transform:translateY(2px);box-shadow:none}
+.pomoAddNote{margin-top:16px;border:0;background:none;color:rgba(0,0,0,.4);font:inherit;font-size:14px;font-weight:700;text-decoration:underline;padding:0;cursor:pointer}
+.pomoApp .pomoForm textarea.pomoFormNote{width:100%;margin-top:14px;border:0;border-radius:6px;background:#efefef;color:#555;font:inherit;font-size:15px;padding:10px 12px;resize:vertical;box-shadow:none}
+.pomoFormFoot{display:flex;align-items:center;gap:6px;background:#efefef;padding:14px 20px}
+.pomoFormSpacer{flex:1}
+.pomoFormFoot button{border:0;border-radius:4px;font:inherit;font-size:14px;font-weight:700;padding:9px 14px;cursor:pointer}
+.pomoFormDelete,.pomoFormCancel{background:none;color:#888}
+.pomoFormDelete:hover,.pomoFormCancel:hover{color:#555}
+.pomoFormSave{background:#222;color:#fff;opacity:.9;box-shadow:rgba(0,0,0,.2) 0 2px 2px}
+.pomoFormSave:hover{opacity:1}
+.pomoSummary{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 22px;margin-top:28px;padding:20px 12px;border-top:1px solid rgba(255,255,255,.8);background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);font-size:17px}
+.pomoSummary b{color:#fff;font-size:22px;font-weight:700;margin:0 2px}
+.pomoSlash{margin:0 2px;opacity:.7}
+/* Settings dialog */
+.pomoModal .modalCard{max-width:440px;max-height:calc(100dvh - 32px);overflow:auto}
+.pomoSettings{display:flex;flex-direction:column}
+.pomoSetGroup{padding:16px 0;border-bottom:1px solid var(--stroke)}
+.pomoSetGroup:first-child{padding-top:4px}
+.pomoSetHead{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.pomoSetHead .uiIcon{width:16px;height:16px}
+.pomoSetLabel{font-weight:600;margin-bottom:8px}
+.pomoSetTimes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:8px}
+.pomoSetTimes label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.pomoSetTimes input{width:100%}
+.pomoSetRow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 0;font-weight:600}
+.pomoSetRow>span:first-child{display:flex;flex-direction:column}
+.pomoSetRow small{font-size:11px;font-weight:400;color:var(--muted)}
+.pomoSetRow select{width:auto;min-width:140px}
+.pomoSetInline{display:inline-flex;align-items:center;gap:8px;font-weight:400;color:var(--muted);white-space:nowrap}
+.pomoSetInline input[type=number]{width:70px}
+.pomoSetInline select{min-width:0}
+.pomoSetInline input[type=range]{width:120px;accent-color:var(--accent)}
+.pomoSetInline output{min-width:26px;text-align:right;font-variant-numeric:tabular-nums}
+input.pomoSwitch[type="checkbox"]{padding:0;min-height:0;appearance:none;-webkit-appearance:none;flex:none;width:44px;height:26px;border-radius:13px;background:var(--stroke);position:relative;cursor:pointer;transition:background .2s;border:0;margin:0}
+input.pomoSwitch[type="checkbox"]::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+input.pomoSwitch[type="checkbox"]:checked{background:#84c733}
+input.pomoSwitch[type="checkbox"]:checked::after{transform:translateX(18px)}
+input.pomoSwitch[type="checkbox"]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pomoSettings .modalActions{padding-top:16px}
+.pomoCountCard{max-width:340px}
+.pomoCountRow{display:flex;gap:8px;align-items:center}
+.pomoCountRow input{flex:1;font-size:18px;font-weight:700}
+@media(max-width:680px){.pomoTime{font-size:100px}}
+@media(max-width:520px){
+  .pomoApp{border-radius:12px;padding:4px 12px 32px;margin:0 -4px}
+  .pomoProgress{margin-bottom:26px}
+  .pomoFull{display:none}.pomoShort{display:inline}
+  .pomoTime{font-size:84px}
+  .pomoStart{width:180px}
+  .pomoNext{left:calc(50% + 100px)}
+  .pomoSummary{font-size:15px}
+  .pomoSetTimes{grid-template-columns:1fr 1fr 1fr}
+  .pomoSetRow select{min-width:0;max-width:150px}
+  .pomoSetInline input[type=range]{width:90px}
+}
+@media(max-width:360px){.pomoTime{font-size:72px}.pomoStart{width:160px}.pomoNext{left:calc(50% + 88px)}}
+@media(prefers-reduced-motion:reduce){.pomoApp,.pomoStart{transition:none}}

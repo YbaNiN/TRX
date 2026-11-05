@@ -332,7 +332,7 @@ function renderCmdk(q) {
     { name: "Nueva entrada de agenda", desc: "Apuntar una cita o recordatorio", key: "A", run: () => { switchTab("agenda"); openAgendaModal(); } },
     { name: "Ir a Horario", desc: "Tu semana de lunes a viernes", key: "H", run: () => switchTab("schedule") },
     { name: "Ir a Listas", desc: "Abrir listas", key: "G", run: () => switchTab("lists") },
-    { name: "Ir a Temporizador", desc: "Abrir temporizador", key: "G", run: () => switchTab("timer") },
+    { name: "Ir a Pomodoro", desc: "Concentrarte con el Pomodoro", key: "G", run: () => switchTab("timer") },
     { name: "Ir a Mi progreso", desc: "Abrir estadísticas", key: "G", run: () => switchTab("stats") },
     { name: "Cambiar Tema", desc: "Claro/Oscuro", key: "T", run: () => toggleTheme() },
     {
@@ -630,7 +630,7 @@ function showOnboarding() {
       <ul class="onboardList">
         <li><span class="ob-ic">✓</span><div><strong>Tareas y Kanban</strong><br><span class="muted">Crea tareas con prioridad, fechas, tags y colores.</span></div></li>
         <li><span class="ob-ic">📅</span><div><strong>Calendario y Agenda</strong><br><span class="muted">Visualiza todo por fechas, ideal en el móvil.</span></div></li>
-        <li><span class="ob-ic">⏱</span><div><strong>Temporizador y Pomodoro</strong><br><span class="muted">Concéntrate con cuentas atrás configurables.</span></div></li>
+        <li><span class="ob-ic">⏱</span><div><strong>Pomodoro</strong><br><span class="muted">Trabaja en bloques de 25 minutos con descansos y tareas.</span></div></li>
         <li><span class="ob-ic">▦</span><div><strong>Estadísticas</strong><br><span class="muted">Mira tu progreso y tu racha de actividad.</span></div></li>
       </ul>
       <div class="onboardActions">

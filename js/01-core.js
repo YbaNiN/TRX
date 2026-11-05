@@ -15,7 +15,7 @@ const LS = {
   notifs: "trx_notifs_v1",
   favColors: "trx_fav_colors_v1",
   dueNotifs: "trx_due_notifs_v1",
-  timer: "trx_timer_v1",
+  timer: "trx_timer_v1", // old timer, read once by the Pomodoro to keep its times
 };
 
 const SUPABASE_URL = "https://hfduuucvknucjhrtodpt.supabase.co";
@@ -72,32 +72,6 @@ const state = {
   tagFilter: null,
   guest: false, // modo invitado: demo de solo lectura
   view: "list", // list | kanban
-  timer: {
-    mode: "timer", // timer | pomodoro
-    durationMs: 25 * 60 * 1000,
-    remainingMs: 25 * 60 * 1000,
-    running: false,
-    endAt: null,
-    volume: 0.5,
-    finishedAt: null,
-
-    // Pomodoro
-    pomodoro: {
-      workMin: 25,
-      shortMin: 5,
-      longMin: 15,
-      longEvery: 4,
-      autoAdvance: true,
-      phase: "work", // work | short | long
-      completed: 0, // trabajos completados
-    },
-
-    // Configuraciones guardadas (máx 10)
-    pomodoroPresets: [],
-
-    // Para recordar el último temporizador "normal"
-    lastTimerDurationMs: 25 * 60 * 1000,
-  },
 };
 
 function uid() {
@@ -324,60 +298,6 @@ function load() {
     if (r) state.agendaRange = r;
   } catch {}
 
-  // Timer
-  try {
-    state.timer = JSON.parse(localStorage.getItem(LS.timer) || "null") || state.timer;
-  } catch {}
-  // Normaliza timer
-  const defTimer = {
-    mode: "timer",
-    durationMs: 25 * 60 * 1000,
-    remainingMs: 25 * 60 * 1000,
-    running: false,
-    endAt: null,
-    volume: 0.5,
-    finishedAt: null,
-    pomodoro: { workMin: 25, shortMin: 5, longMin: 15, longEvery: 4, autoAdvance: true, phase: "work", completed: 0 },
-    pomodoroPresets: [],
-    lastTimerDurationMs: 25 * 60 * 1000,
-  };
-  if (!state.timer || typeof state.timer !== "object") state.timer = defTimer;
-  if (!state.timer.pomodoro || typeof state.timer.pomodoro !== "object") state.timer.pomodoro = defTimer.pomodoro;
-  if (!Array.isArray(state.timer.pomodoroPresets)) state.timer.pomodoroPresets = [];
-
-  state.timer.mode = state.timer.mode === "pomodoro" ? "pomodoro" : "timer";
-  state.timer.durationMs = Math.max(1000, Number(state.timer.durationMs) || defTimer.durationMs);
-  state.timer.remainingMs = Math.min(state.timer.durationMs, Math.max(0, Number(state.timer.remainingMs) || state.timer.durationMs));
-  state.timer.running = Boolean(state.timer.running);
-  state.timer.endAt = state.timer.endAt ? Number(state.timer.endAt) : null;
-  state.timer.volume = Math.max(0, Math.min(1, Number(state.timer.volume) ?? defTimer.volume));
-  state.timer.finishedAt = state.timer.finishedAt ? Number(state.timer.finishedAt) : null;
-
-  state.timer.lastTimerDurationMs = Math.max(1000, Number(state.timer.lastTimerDurationMs) || state.timer.durationMs);
-
-  // Pomodoro settings
-  const p = state.timer.pomodoro;
-  p.workMin = Math.max(1, Math.min(180, Number(p.workMin) || defTimer.pomodoro.workMin));
-  p.shortMin = Math.max(1, Math.min(60, Number(p.shortMin) || defTimer.pomodoro.shortMin));
-  p.longMin = Math.max(1, Math.min(120, Number(p.longMin) || defTimer.pomodoro.longMin));
-  p.longEvery = Math.max(2, Math.min(10, Number(p.longEvery) || defTimer.pomodoro.longEvery));
-  p.autoAdvance = Boolean(p.autoAdvance);
-  p.phase = p.phase === "short" || p.phase === "long" ? p.phase : "work";
-  p.completed = Math.max(0, Number(p.completed) || 0);
-
-  // Pomodoro presets
-  state.timer.pomodoroPresets = (state.timer.pomodoroPresets || [])
-    .filter((x) => x && typeof x === "object")
-    .map((x) => ({
-      id: String(x.id || uid()),
-      name: String(x.name || "Sin nombre").slice(0, 40),
-      workMin: Math.max(1, Math.min(180, Number(x.workMin) || p.workMin)),
-      shortMin: Math.max(1, Math.min(60, Number(x.shortMin) || p.shortMin)),
-      longMin: Math.max(1, Math.min(120, Number(x.longMin) || p.longMin)),
-      longEvery: Math.max(2, Math.min(10, Number(x.longEvery) || p.longEvery)),
-    }))
-    .slice(0, 10);
-
   const v = localStorage.getItem("trx_view_v1");
   if (v) state.view = v;
 
@@ -401,7 +321,6 @@ function save({ sync = true } = {}) {
   if (state.session) localStorage.setItem(LS.session, JSON.stringify(state.session));
   localStorage.setItem("trx_view_v1", state.view);
   if (state.agendaRange) localStorage.setItem("trx_agenda_range_v1", state.agendaRange);
-  localStorage.setItem(LS.timer, JSON.stringify(state.timer || null));
 
   if (sync) {
     try { cloudScheduleSync(); } catch {}

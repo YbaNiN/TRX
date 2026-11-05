@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TRX Panel</title>
   <link rel="stylesheet" href="style.css?v=32" />
-  <link rel="stylesheet" href="design.css?v=39" />
+  <link rel="stylesheet" href="design.css?v=42" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2b6cff" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -219,6 +219,108 @@
     </div>
   </div>
 
+  <!-- Pomodoro settings -->
+  <div id="pomoSettingsModal" class="modal pomoModal" aria-hidden="true">
+    <div class="modalBackdrop" data-close-pomo-settings="1"></div>
+    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="pomoSettingsTitle">
+      <div class="modalHead">
+        <div>
+          <div id="pomoSettingsTitle" class="modalTitle">Ajustes del Pomodoro</div>
+          <div class="modalDesc">Los cambios se aplican al momento.</div>
+        </div>
+        <button class="iconBtn" type="button" data-close-pomo-settings="1" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="pomoSettingsForm" class="pomoSettings">
+        <div class="pomoSetGroup">
+          <div class="pomoSetHead"><span data-icon="timer"></span>Temporizador</div>
+          <div class="pomoSetLabel">Tiempo (minutos)</div>
+          <div class="pomoSetTimes">
+            <label><span>Pomodoro</span><input id="pomoSetPomo" type="number" min="1" max="180" step="1" /></label>
+            <label><span>Descanso corto</span><input id="pomoSetShort" type="number" min="1" max="120" step="1" /></label>
+            <label><span>Descanso largo</span><input id="pomoSetLong" type="number" min="1" max="120" step="1" /></label>
+          </div>
+          <label class="pomoSetRow"><span>Empezar los descansos solos</span><input id="pomoSetAutoBreaks" class="pomoSwitch" type="checkbox" /></label>
+          <label class="pomoSetRow"><span>Empezar los pomodoros solos</span><input id="pomoSetAutoPomos" class="pomoSwitch" type="checkbox" /></label>
+          <label class="pomoSetRow"><span>Descanso largo cada</span><span class="pomoSetInline"><input id="pomoSetInterval" type="number" min="1" max="20" step="1" /> pomodoros</span></label>
+        </div>
+
+        <div class="pomoSetGroup">
+          <div class="pomoSetHead"><span data-icon="check"></span>Tareas</div>
+          <label class="pomoSetRow"><span>Marcar tareas solas<small>Se marca como hecha cuando llega a los pomodoros estimados.</small></span><input id="pomoSetAutoCheck" class="pomoSwitch" type="checkbox" /></label>
+          <label class="pomoSetRow"><span>Mover las hechas al final<small>Y pasa a la siguiente tarea pendiente.</small></span><input id="pomoSetAutoSwitch" class="pomoSwitch" type="checkbox" /></label>
+        </div>
+
+        <div class="pomoSetGroup">
+          <div class="pomoSetHead"><span data-icon="bell"></span>Sonido</div>
+          <label class="pomoSetRow"><span>Alarma</span>
+            <select id="pomoSetAlarm">
+              <option value="bell">Campana</option>
+              <option value="digital">Digital</option>
+              <option value="kitchen">Cocina</option>
+              <option value="wood">Madera</option>
+              <option value="bird">Pájaro</option>
+              <option value="none">Sin sonido</option>
+            </select>
+          </label>
+          <label class="pomoSetRow"><span>Repetir la alarma</span><span class="pomoSetInline"><input id="pomoSetRepeat" type="number" min="1" max="10" step="1" /> veces</span></label>
+          <label class="pomoSetRow"><span>Volumen de la alarma</span><span class="pomoSetInline"><input id="pomoSetVolume" type="range" min="0" max="100" step="5" /><output id="pomoSetVolumeOut">50</output></span></label>
+          <label class="pomoSetRow"><span>Sonido mientras te concentras</span>
+            <select id="pomoSetTicking">
+              <option value="none">Ninguno</option>
+              <option value="fast">Tic-tac rápido</option>
+              <option value="slow">Tic-tac lento</option>
+            </select>
+          </label>
+          <label class="pomoSetRow"><span>Volumen del tic-tac</span><span class="pomoSetInline"><input id="pomoSetTickVolume" type="range" min="0" max="100" step="5" /><output id="pomoSetTickVolumeOut">50</output></span></label>
+        </div>
+
+        <div class="pomoSetGroup">
+          <div class="pomoSetHead"><span data-icon="sun"></span>Otros</div>
+          <label class="pomoSetRow"><span>Modo oscuro mientras corre</span><input id="pomoSetDark" class="pomoSwitch" type="checkbox" /></label>
+          <label class="pomoSetRow"><span>Formato de hora</span>
+            <select id="pomoSetHour"><option value="24">24 horas</option><option value="12">12 horas</option></select>
+          </label>
+          <div class="pomoSetRow"><span>Aviso antes de terminar<small>Con 0 minutos no avisa.</small></span>
+            <span class="pomoSetInline">
+              <select id="pomoSetReminderType" aria-label="Cuándo avisar"><option value="last">Al quedar</option><option value="every">Cada</option></select>
+              <input id="pomoSetReminderMin" type="number" min="0" max="60" step="1" aria-label="Minutos" /> min
+            </span>
+          </div>
+        </div>
+
+        <div class="modalActions">
+          <button class="btn primary" type="submit">Listo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Pomodoro counter -->
+  <div id="pomoCountModal" class="modal" aria-hidden="true">
+    <div class="modalBackdrop" data-close-pomo-count="1"></div>
+    <div class="modalCard pomoCountCard" role="dialog" aria-modal="true" aria-labelledby="pomoCountTitle">
+      <div class="modalHead">
+        <div>
+          <div id="pomoCountTitle" class="modalTitle">Número de pomodoro</div>
+          <div class="modalDesc">Cambia en qué pomodoro de la ronda estás.</div>
+        </div>
+        <button class="iconBtn" type="button" data-close-pomo-count="1" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="pomoCountForm" class="formGrid">
+        <div class="pomoCountRow">
+          <input id="pomoCountInput" type="number" min="1" max="9999" step="1" aria-label="Número de pomodoro" />
+          <button type="button" class="btn ghost" data-count-step="1" aria-label="Uno más">▲</button>
+          <button type="button" class="btn ghost" data-count-step="-1" aria-label="Uno menos">▼</button>
+        </div>
+        <div class="modalActions">
+          <button class="btn ghost" type="button" data-close-pomo-count="1">Cancelar</button>
+          <button class="btn primary" type="submit">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Command Palette -->
   <div id="cmdk" class="modal" aria-hidden="true">
     <div class="modalBackdrop" data-close-cmdk="1"></div>
@@ -296,7 +398,7 @@
           <span class="navGroup">Tu espacio</span>
           <button class="tab active" data-tab="overview" role="tab" aria-controls="overview" aria-selected="true"><span class="ic" data-icon="sun"></span><span>Mi día</span></button><button class="tab" data-tab="tasks" role="tab" aria-controls="tasks" aria-selected="false"><span class="ic" data-icon="check"></span><span>Mis tareas</span><span class="navCount" data-stat="pending">0</span></button><button class="tab" data-tab="calendar" role="tab" aria-controls="calendar" aria-selected="false"><span class="ic" data-icon="calendar"></span><span>Calendario</span></button><button class="tab" data-tab="agenda" role="tab" aria-controls="agenda" aria-selected="false"><span class="ic" data-icon="rows"></span><span>Agenda</span></button><button class="tab" data-tab="schedule" role="tab" aria-controls="schedule" aria-selected="false"><span class="ic" data-icon="table"></span><span>Horario</span></button>
           <span class="navGroup">Organiza y avanza</span>
-          <button class="tab" data-tab="lists" role="tab" aria-controls="lists" aria-selected="false"><span class="ic" data-icon="folder"></span><span>Mis listas</span></button><button class="tab" data-tab="notes" role="tab" aria-controls="notes" aria-selected="false"><span class="ic" data-icon="note"></span><span>Notas</span></button><button class="tab" data-tab="timer" role="tab" aria-controls="timer" aria-selected="false"><span class="ic" data-icon="timer"></span><span>Concentración</span></button><button class="tab" data-tab="stats" role="tab" aria-controls="stats" aria-selected="false"><span class="ic" data-icon="chart"></span><span>Mi progreso</span></button>
+          <button class="tab" data-tab="lists" role="tab" aria-controls="lists" aria-selected="false"><span class="ic" data-icon="folder"></span><span>Mis listas</span></button><button class="tab" data-tab="notes" role="tab" aria-controls="notes" aria-selected="false"><span class="ic" data-icon="note"></span><span>Notas</span></button><button class="tab" data-tab="timer" role="tab" aria-controls="timer" aria-selected="false"><span class="ic" data-icon="timer"></span><span>Pomodoro</span></button><button class="tab" data-tab="stats" role="tab" aria-controls="stats" aria-selected="false"><span class="ic" data-icon="chart"></span><span>Mi progreso</span></button>
           <span class="navGroup">Siempre contigo</span><button class="tab" data-tab="app" role="tab" aria-controls="app" aria-selected="false"><span class="ic" data-icon="phone"></span><span>Instalar TRX</span></button>
         </nav>
       </div>
@@ -675,140 +777,45 @@
 
 
       <!-- TIMER -->
-<section class="panel" id="timer" role="tabpanel" data-mode="timer">
-  <div class="card">
-    <div class="row spread">
-      <div>
-        <div class="h2">Tu momento de concentración</div>
-        <div class="seg" role="tablist" aria-label="Modo temporizador">
-          <button id="timerModeTimer" class="segBtn active" type="button" aria-selected="true">Temporizador</button>
-          <button id="timerModePomodoro" class="segBtn" type="button" aria-selected="false">Pomodoro</button>
-        </div>
-      </div>
-
-      <div class="row timerOnly" style="gap:8px; flex-wrap:wrap; justify-content:flex-end">
-        <button class="btn ghost" id="timerPreset5" type="button">5 min</button>
-        <button class="btn ghost" id="timerPreset10" type="button">10 min</button>
-        <button class="btn ghost" id="timerPreset25" type="button">25 min</button>
-      </div>
+<section class="panel" id="timer" role="tabpanel">
+  <div class="pomoApp" id="pomoApp" data-stage="0">
+    <div class="pomoHeader">
+      <div class="pomoBrand"><span data-icon="circleCheck"></span>Pomodoro</div>
+      <button class="pomoTopBtn" id="pomoSettingsBtn" type="button"><span data-icon="gear"></span>Ajustes</button>
     </div>
+    <div class="pomoProgress" aria-hidden="true"><div class="pomoProgressBar" id="pomoProgress"></div></div>
 
-    <div class="timerLayout">
-      <div class="timerStage">
-        <div class="timerRing" aria-label="Cuenta atrás">
-          <svg class="timerSvg" viewBox="0 0 120 120" aria-hidden="true">
-            <circle class="timerTrack" cx="60" cy="60" r="46" pathLength="100"></circle>
-            <circle class="timerProg" cx="60" cy="60" r="46" pathLength="100"></circle>
-          </svg>
-
-          <div class="timerCenter">
-            <div id="timerDigits" class="timerDigits" role="timer" aria-live="off">25:00</div>
-            <div id="pomoPhase" class="timerPhase pomoOnly">Trabajo</div>
-            <div id="pomoCount" class="timerPhaseSub pomoOnly">Pomodoro 1 de 4</div>
-          </div>
+    <div class="pomoMain">
+      <div class="pomoCard">
+        <div class="pomoTabs" role="tablist" aria-label="Fase">
+          <button class="pomoTab selected" data-stage="0" type="button" role="tab" aria-selected="true" title="Tecla 1"><span class="pomoFull">Pomodoro</span><span class="pomoShort">Pomo</span></button>
+          <button class="pomoTab" data-stage="1" type="button" role="tab" aria-selected="false" title="Tecla 2"><span class="pomoFull">Descanso corto</span><span class="pomoShort">Corto</span></button>
+          <button class="pomoTab" data-stage="2" type="button" role="tab" aria-selected="false" title="Tecla 3"><span class="pomoFull">Descanso largo</span><span class="pomoShort">Largo</span></button>
         </div>
-
-        <div class="timerActions">
-          <div class="row timerButtons">
-            <button id="timerStart" class="btn primary" type="button">Iniciar</button>
-            <button id="timerPause" class="btn ghost" type="button">Pausar</button>
-            <button id="pomoSkip" class="btn ghost pomoOnly" type="button" title="Termina esta fase y pasa a la siguiente">Siguiente fase</button>
-            <button id="timerReset" class="btn danger" type="button" title="Vuelve a empezar la cuenta atrás actual">Reiniciar</button>
-          </div>
-
-          <div class="timerMeta">
-            <div class="muted" id="timerMeta">Duración: —</div>
-          </div>
+        <div class="pomoTime" id="pomoTime" role="timer" aria-live="off">25:00</div>
+        <div class="pomoControls">
+          <button class="pomoStart" id="pomoStart" type="button" aria-pressed="false" title="Pulsa la barra espaciadora para empezar o pausar">EMPEZAR</button>
+          <button class="pomoNext" id="pomoNext" type="button" tabindex="-1" aria-label="Terminar esta fase y pasar a la siguiente" title="Terminar esta fase"><span data-icon="skip"></span></button>
         </div>
       </div>
 
-      <div class="timerControls">
-        <div class="row3 timerOnly">
-          <div class="field">
-            <label class="lbl" for="timerMin">Min</label>
-            <input id="timerMin" type="number" min="0" max="999" step="1" value="25" />
-          </div>
-          <div class="field">
-            <label class="lbl" for="timerSec">Seg</label>
-            <input id="timerSec" type="number" min="0" max="59" step="1" value="0" />
-          </div>
-          <div class="field">
-            <label class="lbl" for="timerVol">Sonido</label>
-            <select id="timerVol">
-              <option value="0">Off</option>
-              <option value="0.2">Bajo</option>
-              <option value="0.5" selected>Medio</option>
-              <option value="0.9">Alto</option>
-            </select>
+      <button class="pomoCount" id="pomoCount" type="button" title="Cambiar el número de pomodoro">#1</button>
+      <div class="pomoMsg" id="pomoMsg">¡Hora de concentrarse!</div>
+
+      <div class="pomoTasksHead">
+        <span>Tareas</span>
+        <div class="pomoMenuWrap">
+          <button class="pomoIconBtn" id="pomoTaskMenuBtn" type="button" aria-label="Opciones de tareas" aria-haspopup="true" aria-expanded="false"><span data-icon="dots"></span></button>
+          <div class="pomoMenu" id="pomoTaskMenu" role="menu" hidden>
+            <button type="button" role="menuitem" data-pomo-menu="clear-done"><span data-icon="trash"></span>Borrar tareas terminadas</button>
+            <button type="button" role="menuitem" data-pomo-menu="clear-act"><span data-icon="close"></span>Poner a cero los pomodoros hechos</button>
+            <button type="button" role="menuitem" data-pomo-menu="clear-all"><span data-icon="trash"></span>Borrar todas las tareas</button>
           </div>
         </div>
-
-        <div class="pomoOnly">
-          <div class="row spread" style="margin-bottom:10px; align-items:flex-end; flex-wrap:wrap; gap:10px">
-            <div class="row pomoPhaseRow" style="gap:8px; flex-wrap:wrap" role="group" aria-label="Elegir fase">
-              <button id="pomoPhaseWork" class="btn ghost sm pomoPhaseBtn" data-phase="work" type="button" aria-pressed="true">Trabajo</button>
-              <button id="pomoPhaseShort" class="btn ghost sm pomoPhaseBtn" data-phase="short" type="button" aria-pressed="false">Descanso</button>
-              <button id="pomoPhaseLong" class="btn ghost sm pomoPhaseBtn" data-phase="long" type="button" aria-pressed="false">Largo</button>
-              <button id="pomoCycleReset" class="btn ghost sm" type="button" title="Vuelve a Trabajo y pone el contador a cero">Reiniciar ciclo</button>
-            </div>
-
-            <div class="row" style="gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end">
-              <label class="checkRow">
-                <input id="pomoAuto" type="checkbox" checked />
-                <span>Auto-cambiar</span>
-              </label>
-              <div class="field" style="min-width:140px">
-                <label class="lbl" for="timerVolPomo">Sonido</label>
-                <select id="timerVolPomo">
-                  <option value="0">Off</option>
-                  <option value="0.2">Bajo</option>
-                  <option value="0.5" selected>Medio</option>
-                  <option value="0.9">Alto</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div class="row4">
-            <div class="field">
-              <label class="lbl" for="pomoWork">Trabajo (min)</label>
-              <input id="pomoWork" type="number" min="1" max="180" step="1" value="25" />
-            </div>
-            <div class="field">
-              <label class="lbl" for="pomoShort">Descanso (min)</label>
-              <input id="pomoShort" type="number" min="1" max="60" step="1" value="5" />
-            </div>
-            <div class="field">
-              <label class="lbl" for="pomoLong">Largo (min)</label>
-              <input id="pomoLong" type="number" min="1" max="120" step="1" value="15" />
-            </div>
-            <div class="field">
-              <label class="lbl" for="pomoEvery">Largo cada</label>
-              <input id="pomoEvery" type="number" min="2" max="10" step="1" value="4" />
-            </div>
-          </div>
-
-          <div class="pomoPresets" aria-label="Configuraciones guardadas">
-            <div class="row spread" style="align-items:flex-end; gap:10px; flex-wrap:wrap">
-              <div>
-                <div class="muted" style="font-weight:900; letter-spacing:.2px">Configuraciones</div>
-                <div class="muted" style="font-size:12px">Guarda hasta 10 combinaciones de tiempos.</div>
-              </div>
-
-              <div class="row" style="gap:10px; flex-wrap:wrap; justify-content:flex-end">
-                <div class="field" style="min-width:220px">
-                  <label class="lbl" for="pomoPresetName">Nombre</label>
-                  <input id="pomoPresetName" type="text" maxlength="40" placeholder="Ej: Estudiar mates" autocomplete="off" />
-                </div>
-                <button id="pomoPresetSave" class="btn ghost" type="button">Guardar</button>
-              </div>
-            </div>
-
-            <div id="pomoPresetList" class="pomoPresetList" aria-label="Lista de configuraciones"></div>
-          </div>
-        </div>
-
       </div>
+      <div id="pomoTaskList" class="pomoTaskList" aria-label="Tareas del Pomodoro"></div>
+      <button class="pomoAddTask" id="pomoAddTask" type="button"><span data-icon="plusCircle"></span>Añadir tarea</button>
+      <div class="pomoSummary" id="pomoSummary" hidden></div>
     </div>
   </div>
 </section>
@@ -937,13 +944,14 @@
 </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/00-design.js?v=36"></script>
-  <script src="js/01-core.js?v=35"></script>
-  <script src="js/02-ui-auth.js?v=35"></script>
-  <script src="js/03-features.js?v=37"></script>
-  <script src="js/04-views.js?v=37"></script>
-  <script src="js/05-experience.js?v=37"></script>
+  <script src="js/00-design.js?v=37"></script>
+  <script src="js/01-core.js?v=36"></script>
+  <script src="js/02-ui-auth.js?v=36"></script>
+  <script src="js/03-features.js?v=38"></script>
+  <script src="js/04-views.js?v=38"></script>
+  <script src="js/05-experience.js?v=38"></script>
   <script src="js/06-schedule.js?v=4"></script>
+  <script src="js/07-pomodoro.js?v=2"></script>
 <!-- Install FAB (Mobile) -->
 <!-- Discord forms modal -->
 <div id="discordFormModal" class="modal" aria-hidden="true">
